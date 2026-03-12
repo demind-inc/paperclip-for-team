@@ -21,6 +21,8 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { CircleDot, Plus, Filter, ArrowUpDown, Layers, Check, X, ChevronRight, List, Columns3, User, Search } from "lucide-react";
 import { KanbanBoard } from "./KanbanBoard";
 import type { Issue } from "@paperclipai/shared";
+import { GithubIssueImportDialog } from "./GithubIssueImportDialog";
+import { githubIntegrationsApi } from "@/api/githubIntegrations";
 
 /* ── Helpers ── */
 
@@ -165,6 +167,14 @@ export function IssuesList({
 }: IssuesListProps) {
   const { selectedCompanyId } = useCompany();
   const { openNewIssue } = useDialog();
+  const [githubImportOpen, setGithubImportOpen] = useState(false);
+
+  const githubIntegrationsQuery = useQuery({
+    queryKey: selectedCompanyId ? queryKeys.githubIntegrations.list(selectedCompanyId) : ["github-integrations", "none"],
+    queryFn: () => githubIntegrationsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+  const hasGithubRepos = (githubIntegrationsQuery.data ?? []).some((i) => i.enabled);
 
   // Scope the storage key per company so folding/view state is independent across companies.
   const scopedKey = selectedCompanyId ? `${viewStateKey}:${selectedCompanyId}` : viewStateKey;
@@ -286,6 +296,15 @@ export function IssuesList({
           <Button size="sm" variant="outline" onClick={() => openNewIssue(newIssueDefaults())}>
             <Plus className="h-4 w-4 sm:mr-1" />
             <span className="hidden sm:inline">New Issue</span>
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setGithubImportOpen(true)}
+            disabled={!selectedCompanyId || !hasGithubRepos}
+            title={!hasGithubRepos ? "Connect and enable a GitHub repo in Company Settings first" : "Import issues from GitHub"}
+          >
+            Import from GitHub
           </Button>
           <div className="relative w-48 sm:w-64 md:w-80">
             <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -547,6 +566,14 @@ export function IssuesList({
           message="No issues match the current filters or search."
           action="Create Issue"
           onAction={() => openNewIssue(newIssueDefaults())}
+        />
+      )}
+
+      {selectedCompanyId && (
+        <GithubIssueImportDialog
+          open={githubImportOpen}
+          onOpenChange={setGithubImportOpen}
+          companyId={selectedCompanyId}
         />
       )}
 

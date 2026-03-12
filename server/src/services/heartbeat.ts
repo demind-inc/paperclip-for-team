@@ -1177,11 +1177,20 @@ export function heartbeatService(db: Db) {
             id: issues.id,
             identifier: issues.identifier,
             title: issues.title,
+            description: issues.description,
           })
           .from(issues)
           .where(and(eq(issues.id, issueId), eq(issues.companyId, agent.companyId)))
           .then((rows) => rows[0] ?? null)
       : null;
+    if (issueRef) {
+      context.paperclipIssue = {
+        id: issueRef.id,
+        identifier: issueRef.identifier,
+        title: issueRef.title,
+        description: issueRef.description,
+      };
+    }
     const executionWorkspace = await realizeExecutionWorkspace({
       base: {
         baseCwd: resolvedWorkspace.cwd,

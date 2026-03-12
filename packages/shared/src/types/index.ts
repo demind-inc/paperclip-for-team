@@ -54,6 +54,13 @@ export type { DashboardSummary } from "./dashboard.js";
 export type { ActivityEvent } from "./activity.js";
 export type { SidebarBadges } from "./sidebar-badges.js";
 export type {
+  GithubIntegration,
+  GithubSyncResult,
+  GithubIssueSummary,
+  GithubIssueSearchResult,
+  GithubImportResult,
+} from "./integrations.js";
+export type {
   CompanyMembership,
   PrincipalPermissionGrant,
   Invite,
