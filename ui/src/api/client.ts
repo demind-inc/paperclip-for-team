@@ -1,3 +1,5 @@
+import { getSupabaseAccessToken, isSupabaseAuthEnabled } from "@/lib/supabase";
+
 const BASE = "/api";
 
 export class ApiError extends Error {
@@ -17,6 +19,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const body = init?.body;
   if (!(body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+  if (isSupabaseAuthEnabled()) {
+    const token = await getSupabaseAccessToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
   }
 
   const res = await fetch(`${BASE}${path}`, {

@@ -1560,11 +1560,14 @@ export function accessRoutes(
     allowedJoinTypes: "human" | "agent" | "both";
     defaultsPayload?: Record<string, unknown> | null;
     agentMessage?: string | null;
+    email?: string | null;
   }) {
     const normalizedAgentMessage =
       typeof input.agentMessage === "string"
         ? input.agentMessage.trim() || null
         : null;
+    const invitedEmail =
+      typeof input.email === "string" ? input.email.trim().toLowerCase() || null : null;
     const insertValues = {
       companyId: input.companyId,
       inviteType: "company_join" as const,
@@ -1574,7 +1577,8 @@ export function accessRoutes(
         normalizedAgentMessage
       ),
       expiresAt: companyInviteExpiresAt(),
-      invitedByUserId: input.req.actor.userId ?? null
+      invitedByUserId: input.req.actor.userId ?? null,
+      invitedEmail,
     };
 
     let token: string | null = null;
@@ -1637,7 +1641,8 @@ export function accessRoutes(
           companyId,
           allowedJoinTypes: req.body.allowedJoinTypes,
           defaultsPayload: req.body.defaultsPayload ?? null,
-          agentMessage: req.body.agentMessage ?? null
+          agentMessage: req.body.agentMessage ?? null,
+          email: req.body.email ?? null,
         });
 
       await logActivity(db, {
@@ -1682,7 +1687,8 @@ export function accessRoutes(
           companyId,
           allowedJoinTypes: "agent",
           defaultsPayload: null,
-          agentMessage: req.body.agentMessage ?? null
+          agentMessage: req.body.agentMessage ?? null,
+          email: null,
         });
 
       await logActivity(db, {
@@ -2535,7 +2541,7 @@ export function accessRoutes(
 
   router.get("/companies/:companyId/members", async (req, res) => {
     const companyId = req.params.companyId as string;
-    await assertCompanyPermission(req, companyId, "users:manage_permissions");
+    await assertCompanyAccess(req, companyId);
     const members = await access.listMembers(companyId);
     res.json(members);
   });

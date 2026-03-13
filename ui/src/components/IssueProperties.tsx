@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "@/lib/router";
 import type { Issue } from "@paperclipai/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { accessApi } from "../api/access";
 import { agentsApi } from "../api/agents";
 import { authApi } from "../api/auth";
 import { issuesApi } from "../api/issues";
@@ -123,6 +124,12 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     queryKey: queryKeys.agents.list(companyId!),
     queryFn: () => agentsApi.list(companyId!),
     enabled: !!companyId,
+  });
+
+  const { data: members } = useQuery({
+    queryKey: queryKeys.access.members(companyId!),
+    queryFn: () => accessApi.listMembers(companyId!),
+    enabled: !!companyId && assigneeOpen,
   });
 
   const { data: projects } = useQuery({
@@ -330,6 +337,10 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     </>
   );
 
+  const userMembers = useMemo(
+    () => (members ?? []).filter((m) => m.principalType === "user"),
+    [members],
+  );
   const assigneeContent = (
     <>
       <input
@@ -364,6 +375,32 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             {creatorUserLabel ? `Assign to ${creatorUserLabel === "Me" ? "me" : creatorUserLabel}` : "Assign to requester"}
           </button>
         )}
+        {userMembers
+          .filter((m) => {
+            if (!assigneeSearch.trim()) return true;
+            const q = assigneeSearch.toLowerCase();
+            const label = m.principalId === currentUserId ? "me" : m.principalId.slice(0, 8);
+            return label.toLowerCase().includes(q) || (m.principalId === currentUserId && "me".includes(q));
+          })
+          .map((m) => {
+            const label = userLabel(m.principalId) ?? m.principalId.slice(0, 8);
+            return (
+              <button
+                key={m.id}
+                className={cn(
+                  "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                  issue.assigneeUserId === m.principalId && "bg-accent",
+                )}
+                onClick={() => {
+                  onUpdate({ assigneeAgentId: null, assigneeUserId: m.principalId });
+                  setAssigneeOpen(false);
+                }}
+              >
+                <User className="h-3 w-3 shrink-0 text-muted-foreground" />
+                {label}
+              </button>
+            );
+          })}
         {sortedAgents
           .filter((a) => {
             if (!assigneeSearch.trim()) return true;

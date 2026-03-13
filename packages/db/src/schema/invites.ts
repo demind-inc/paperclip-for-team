@@ -12,6 +12,7 @@ export const invites = pgTable(
     defaultsPayload: jsonb("defaults_payload").$type<Record<string, unknown> | null>(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     invitedByUserId: text("invited_by_user_id"),
+    invitedEmail: text("invited_email"),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

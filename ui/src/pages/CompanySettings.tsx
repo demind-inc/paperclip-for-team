@@ -76,6 +76,10 @@ export function CompanySettings() {
   const [snippetCopied, setSnippetCopied] = useState(false);
   const [snippetCopyDelightId, setSnippetCopyDelightId] = useState(0);
 
+  const [teamInviteEmail, setTeamInviteEmail] = useState("");
+  const [teamInviteLink, setTeamInviteLink] = useState<string | null>(null);
+  const [teamInviteError, setTeamInviteError] = useState<string | null>(null);
+
   const generalDirty =
     !!selectedCompany &&
     (companyName !== selectedCompany.name ||
@@ -161,7 +165,36 @@ export function CompanySettings() {
     setInviteSnippet(null);
     setSnippetCopied(false);
     setSnippetCopyDelightId(0);
+    setTeamInviteLink(null);
+    setTeamInviteError(null);
   }, [selectedCompanyId]);
+
+  const teamInviteMutation = useMutation({
+    mutationFn: () =>
+      accessApi.createCompanyInvite(selectedCompanyId!, {
+        allowedJoinTypes: "human",
+        email: teamInviteEmail.trim() || null,
+      }),
+    onSuccess: (data) => {
+      setTeamInviteError(null);
+      const base = window.location.origin.replace(/\/+$/, "");
+      setTeamInviteLink(`${base}/invite/${data.token}`);
+      queryClient.invalidateQueries({ queryKey: queryKeys.access.members(selectedCompanyId!) });
+    },
+    onError: (err) => {
+      setTeamInviteError(err instanceof Error ? err.message : "Failed to create invite");
+    },
+  });
+
+  const { data: members } = useQuery({
+    queryKey: queryKeys.access.members(selectedCompanyId!),
+    queryFn: () => accessApi.listMembers(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+  const userMembersCount = useMemo(
+    () => (members ?? []).filter((m) => m.principalType === "user").length,
+    [members],
+  );
   const archiveMutation = useMutation({
     mutationFn: ({
       companyId,
@@ -399,6 +432,62 @@ export function CompanySettings() {
             checked={!!selectedCompany.requireBoardApprovalForNewAgents}
             onChange={(v) => settingsMutation.mutate(v)}
           />
+        </div>
+      </div>
+
+      {/* Team */}
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Team
+        </div>
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            Invite team members by email. They sign in (or sign up) and accept the invite to join this org.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[200px] flex-1">
+              <label className="mb-1 block text-xs text-muted-foreground">Email</label>
+              <input
+                className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                type="email"
+                value={teamInviteEmail}
+                placeholder="teammate@example.com"
+                onChange={(e) => setTeamInviteEmail(e.target.value)}
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => teamInviteMutation.mutate()}
+              disabled={teamInviteMutation.isPending || !teamInviteEmail.trim()}
+            >
+              {teamInviteMutation.isPending ? "Creating…" : "Create invite link"}
+            </Button>
+          </div>
+          {teamInviteError && (
+            <p className="text-sm text-destructive">{teamInviteError}</p>
+          )}
+          {teamInviteLink && (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                className="min-w-0 flex-1 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-sm font-mono outline-none"
+                type="text"
+                value={teamInviteLink}
+                readOnly
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  navigator.clipboard.writeText(teamInviteLink);
+                }}
+              >
+                Copy link
+              </Button>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {userMembersCount} team member{userMembersCount !== 1 ? "s" : ""} in this org.
+          </p>
         </div>
       </div>
 

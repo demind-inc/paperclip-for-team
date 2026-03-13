@@ -1,4 +1,4 @@
-import type { AgentAdapterType, JoinRequest } from "@paperclipai/shared";
+import type { AgentAdapterType, CompanyMembership, JoinRequest } from "@paperclipai/shared";
 import { api } from "./client";
 
 type InviteSummary = {
@@ -82,9 +82,13 @@ export const accessApi = {
       allowedJoinTypes?: "human" | "agent" | "both";
       defaultsPayload?: Record<string, unknown> | null;
       agentMessage?: string | null;
+      email?: string | null;
     } = {},
   ) =>
     api.post<CompanyInviteCreated>(`/companies/${companyId}/invites`, input),
+
+  listMembers: (companyId: string) =>
+    api.get<CompanyMembership[]>(`/companies/${companyId}/members`),
 
   createOpenClawInvitePrompt: (
     companyId: string,

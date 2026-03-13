@@ -1,3 +1,4 @@
+/// <reference path="../types/express.d.ts" />
 import { Router, type Request } from "express";
 import { generateKeyPairSync, randomUUID } from "node:crypto";
 import path from "node:path";
