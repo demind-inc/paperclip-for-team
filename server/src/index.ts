@@ -421,16 +421,22 @@ export async function startServer(): Promise<StartedServer> {
   }
   if (config.deploymentMode === "authenticated") {
     const supabaseJwtSecret = process.env.SUPABASE_JWT_SECRET?.trim();
-    if (supabaseJwtSecret) {
+    const supabaseUrl = process.env.SUPABASE_URL?.trim();
+    const useSupabase = Boolean(supabaseJwtSecret || supabaseUrl);
+    if (useSupabase) {
       const { resolveSupabaseSession, resolveSupabaseSessionFromHeaders } = await import(
         "./auth/supabase.js"
       );
-      resolveSession = (req) => resolveSupabaseSession(req, supabaseJwtSecret);
+      const supabaseOpts = { jwtSecret: supabaseJwtSecret, supabaseUrl: supabaseUrl ?? undefined };
+      resolveSession = (req) => resolveSupabaseSession(req, supabaseOpts);
       resolveSessionFromHeaders = (headers) =>
-        resolveSupabaseSessionFromHeaders(headers, supabaseJwtSecret);
+        resolveSupabaseSessionFromHeaders(headers, supabaseOpts);
       await initializeBoardClaimChallenge(db as any, { deploymentMode: config.deploymentMode });
       authReady = true;
-      logger.info("Authenticated mode using Supabase Auth (Bearer JWT)");
+      logger.info(
+        { hasJwtSecret: Boolean(supabaseJwtSecret), hasUrl: Boolean(supabaseUrl) },
+        "Authenticated mode using Supabase Auth (Bearer JWT)",
+      );
     } else {
       const {
         createBetterAuthHandler,

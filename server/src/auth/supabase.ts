@@ -1,6 +1,7 @@
 import type { IncomingHttpHeaders } from "node:http";
 import type { Request } from "express";
 import * as jose from "jose";
+import { logger } from "../middleware/logger.js";
 
 export type SupabaseSessionUser = {
   id: string;
@@ -13,33 +14,70 @@ export type SupabaseSessionResult = {
   user: SupabaseSessionUser;
 };
 
+type JwtPayload = {
+  sub: string;
+  email?: string | null;
+  user_metadata?: { name?: string };
+};
+
+function parsePayload(payload: jose.JWTPayload): JwtPayload | null {
+  const sub = payload.sub;
+  if (!sub || typeof sub !== "string") return null;
+  const email = payload.email;
+  const userMetadata = payload.user_metadata as { name?: string } | undefined;
+  return {
+    sub,
+    email: typeof email === "string" ? email : null,
+    user_metadata: userMetadata,
+  };
+}
+
 /**
- * Verify a Supabase access token (JWT) and return the user payload.
- * Uses SUPABASE_JWT_SECRET (Project Settings > API > JWT Secret) for HS256 verification.
+ * Verify a Supabase access token (JWT). Tries HS256 with secret first, then RS256 via JWKS if supabaseUrl is set.
+ * Supabase projects may use either the legacy JWT Secret (HS256) or the JWKS endpoint (RS256).
  */
 export async function verifySupabaseJwt(
   token: string,
-  secret: string,
-): Promise<{ sub: string; email?: string | null; user_metadata?: { name?: string } } | null> {
-  try {
-    const secretBytes = new TextEncoder().encode(secret);
-    const { payload } = await jose.jwtVerify(token, secretBytes, {
-      algorithms: ["HS256"],
-      clockTolerance: 10,
-    });
-    const sub = payload.sub;
-    if (!sub || typeof sub !== "string") return null;
-    const email = payload.email;
-    const userMetadata = payload.user_metadata as { name?: string } | undefined;
-    const name = userMetadata?.name ?? payload.name;
-    return {
-      sub,
-      email: typeof email === "string" ? email : null,
-      user_metadata: userMetadata,
-    };
-  } catch {
-    return null;
+  opts: { secret?: string; supabaseUrl?: string },
+): Promise<JwtPayload | null> {
+  const { secret, supabaseUrl } = opts;
+
+  if (secret) {
+    try {
+      const secretBytes = new TextEncoder().encode(secret);
+      const { payload } = await jose.jwtVerify(token, secretBytes, {
+        algorithms: ["HS256"],
+        clockTolerance: 10,
+      });
+      return parsePayload(payload);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("algorithm") && !msg.includes("signature")) {
+        logger.debug({ err: msg }, "Supabase JWT HS256 verification failed");
+      }
+    }
   }
+
+  if (supabaseUrl) {
+    try {
+      const base = supabaseUrl.replace(/\/$/, "");
+      const jwksUrl = `${base}/auth/v1/.well-known/jwks.json`;
+      const jwks = jose.createRemoteJWKSet(new URL(jwksUrl));
+      const { payload } = await jose.jwtVerify(token, jwks, {
+        algorithms: ["RS256", "ES256"],
+        clockTolerance: 10,
+      });
+      return parsePayload(payload);
+    } catch (err) {
+      logger.debug(
+        { err: err instanceof Error ? err.message : String(err) },
+        "Supabase JWT JWKS verification failed",
+      );
+      return null;
+    }
+  }
+
+  return null;
 }
 
 export function getSupabaseBearerToken(req: Request): string | null {
@@ -60,17 +98,22 @@ function getBearerTokenFromHeaders(headers: IncomingHttpHeaders | Headers): stri
   return token || null;
 }
 
+export type SupabaseAuthOptions = {
+  jwtSecret?: string;
+  supabaseUrl?: string;
+};
+
 /**
  * Resolve session from Supabase JWT when present in Authorization header.
  * Use when auth provider is Supabase; does not read cookies.
  */
 export async function resolveSupabaseSession(
   req: Request,
-  jwtSecret: string,
+  opts: SupabaseAuthOptions,
 ): Promise<SupabaseSessionResult | null> {
   const token = getSupabaseBearerToken(req);
   if (!token) return null;
-  return resolveSupabaseSessionFromToken(token, jwtSecret);
+  return resolveSupabaseSessionFromToken(token, opts);
 }
 
 /**
@@ -78,9 +121,9 @@ export async function resolveSupabaseSession(
  */
 export async function resolveSupabaseSessionFromToken(
   token: string,
-  jwtSecret: string,
+  opts: SupabaseAuthOptions,
 ): Promise<SupabaseSessionResult | null> {
-  const payload = await verifySupabaseJwt(token, jwtSecret);
+  const payload = await verifySupabaseJwt(token, opts);
   if (!payload) return null;
   const name =
     (payload.user_metadata?.name as string | undefined) ??
@@ -100,9 +143,9 @@ export async function resolveSupabaseSessionFromToken(
  */
 export async function resolveSupabaseSessionFromHeaders(
   headers: IncomingHttpHeaders | Headers,
-  jwtSecret: string,
+  opts: SupabaseAuthOptions,
 ): Promise<SupabaseSessionResult | null> {
   const token = getBearerTokenFromHeaders(headers);
   if (!token) return null;
-  return resolveSupabaseSessionFromToken(token, jwtSecret);
+  return resolveSupabaseSessionFromToken(token, opts);
 }

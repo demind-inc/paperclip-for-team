@@ -81,16 +81,17 @@ export async function createApp(
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
+    const user = req.sessionUser ?? {
+      id: req.actor.userId,
+      email: null as string | null,
+      name: req.actor.source === "local_implicit" ? "Local Board" : null as string | null,
+    };
     res.json({
       session: {
         id: `paperclip:${req.actor.source}:${req.actor.userId}`,
         userId: req.actor.userId,
       },
-      user: {
-        id: req.actor.userId,
-        email: null,
-        name: req.actor.source === "local_implicit" ? "Local Board" : null,
-      },
+      user: { id: user.id, email: user.email, name: user.name },
     });
   });
   if (opts.betterAuthHandler) {

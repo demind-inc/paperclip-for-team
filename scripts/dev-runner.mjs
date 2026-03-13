@@ -1,9 +1,34 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import { readFileSync, existsSync } from "node:fs";
+import path from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 
 const mode = process.argv[2] === "watch" ? "watch" : "dev";
+
+/** Load server/.env into the given env so migration preflight uses the same DB as the server. */
+function loadServerEnvInto(env) {
+  const serverEnvPath = path.resolve(process.cwd(), "server", ".env");
+  if (!existsSync(serverEnvPath)) return;
+  try {
+    const raw = readFileSync(serverEnvPath, "utf8");
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const match = trimmed.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+      if (!match) continue;
+      const [, key, rawVal] = match;
+      let val = (rawVal ?? "").trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      env[key] = val;
+    }
+  } catch (_) {
+    // ignore parse errors
+  }
+}
 const cliArgs = process.argv.slice(3);
 
 const tailscaleAuthFlagNames = new Set([
@@ -43,6 +68,8 @@ if (tailscaleAuth) {
 } else {
   console.log("[paperclip] dev mode: local_trusted (default)");
 }
+
+loadServerEnvInto(env);
 
 const pnpmBin = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 

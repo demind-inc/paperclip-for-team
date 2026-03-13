@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { resolvePaperclipConfigPath, resolvePaperclipEnvPath } from "./paths.js";
+import { resolvePaperclipConfigPath, resolveServerEnvPath } from "./paths.js";
 import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
 
 import { parse as parseEnvFileContents } from "dotenv";
@@ -102,7 +102,7 @@ export function printStartupBanner(opts: StartupBannerOptions): void {
   const apiUrl = `${baseUrl}/api`;
   const uiUrl = opts.uiMode === "none" ? "disabled" : baseUrl;
   const configPath = resolvePaperclipConfigPath();
-  const envFilePath = resolvePaperclipEnvPath();
+  const envFilePath = resolveServerEnvPath();
   const agentJwtSecret = resolveAgentJwtSecretStatus(envFilePath);
 
   const dbMode =
