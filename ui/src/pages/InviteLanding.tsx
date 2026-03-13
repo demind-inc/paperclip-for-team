@@ -233,24 +233,26 @@ export function InviteLandingPage() {
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">Invite expires {dateTime(invite.expiresAt)}.</p>
 
-        {invite.inviteType !== "bootstrap_ceo" && (
-          <div className="mt-5 flex gap-2">
-            {availableJoinTypes.map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => setJoinType(type)}
-                className={`rounded-md border px-3 py-1.5 text-sm ${
-                  joinType === type
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border bg-background text-foreground"
-                }`}
-              >
-                Join as {type}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="mt-5 flex gap-2" role="tablist" aria-label="Join type">
+          {availableJoinTypes.map((type) => (
+            <Button
+              key={type}
+              type="button"
+              variant={joinType === type ? "default" : "outline"}
+              size="sm"
+              role="tab"
+              aria-selected={joinType === type}
+              onClick={() => setJoinType(type)}
+              className={
+                joinType === type
+                  ? ""
+                  : "border-border bg-background text-foreground hover:bg-muted hover:text-foreground"
+              }
+            >
+              Join as {type}
+            </Button>
+          ))}
+        </div>
 
         {joinType === "agent" && invite.inviteType !== "bootstrap_ceo" && (
           <div className="mt-4 space-y-3">
