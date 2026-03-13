@@ -1,3 +1,4 @@
+/// <reference path="../types/express.d.ts" />
 import { createHash } from "node:crypto";
 import type { Request, RequestHandler } from "express";
 import { and, eq, isNull } from "drizzle-orm";

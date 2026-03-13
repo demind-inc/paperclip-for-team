@@ -1,3 +1,4 @@
+/// <reference path="../types/express.d.ts" />
 import type { Request, RequestHandler } from "express";
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
