@@ -127,6 +127,56 @@ export function accessService(db: Db) {
     return member;
   }
 
+  /** Remove a member from the company (deletes membership and their permission grants). Fails if removing the last owner. */
+  async function removeMember(companyId: string, memberId: string): Promise<MembershipRow | null> {
+    const member = await db
+      .select()
+      .from(companyMemberships)
+      .where(
+        and(
+          eq(companyMemberships.companyId, companyId),
+          eq(companyMemberships.id, memberId),
+        ),
+      )
+      .then((rows) => rows[0] ?? null);
+    if (!member) return null;
+
+    if (
+      member.principalType === "user" &&
+      member.membershipRole === "owner"
+    ) {
+      const owners = await db
+        .select({ id: companyMemberships.id })
+        .from(companyMemberships)
+        .where(
+          and(
+            eq(companyMemberships.companyId, companyId),
+            eq(companyMemberships.principalType, "user"),
+            eq(companyMemberships.status, "active"),
+            eq(companyMemberships.membershipRole, "owner"),
+          ),
+        );
+      if (owners.length <= 1) return null;
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(principalPermissionGrants)
+        .where(
+          and(
+            eq(principalPermissionGrants.companyId, companyId),
+            eq(principalPermissionGrants.principalType, member.principalType),
+            eq(principalPermissionGrants.principalId, member.principalId),
+          ),
+        );
+      await tx
+        .delete(companyMemberships)
+        .where(eq(companyMemberships.id, memberId));
+    });
+
+    return member;
+  }
+
   async function promoteInstanceAdmin(userId: string) {
     const existing = await db
       .select()
@@ -281,6 +331,7 @@ export function accessService(db: Db) {
     ensureMembership,
     listMembers,
     setMemberPermissions,
+    removeMember,
     promoteInstanceAdmin,
     demoteInstanceAdmin,
     listUserCompanyAccess,

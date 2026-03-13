@@ -2611,6 +2611,38 @@ export function accessRoutes(
     }
   );
 
+  router.delete("/companies/:companyId/members/:memberId", async (req, res) => {
+    const companyId = req.params.companyId as string;
+    const memberId = req.params.memberId as string;
+    await assertCompanyPermission(req, companyId, "users:manage_permissions");
+    const members = await access.listMembers(companyId);
+    const member = members.find((r) => r.id === memberId);
+    if (!member) throw notFound("Member not found");
+    const removed = await access.removeMember(companyId, memberId);
+    if (!removed) {
+      throw conflict(
+        "Cannot remove the last owner. Transfer ownership or add another owner first."
+      );
+    }
+    await logActivity(db, {
+      companyId,
+      actorType: req.actor.type === "agent" ? "agent" : "user",
+      actorId:
+        req.actor.type === "agent"
+          ? req.actor.agentId ?? "unknown-agent"
+          : req.actor.userId ?? "board",
+      action: "member.removed",
+      entityType: "company_membership",
+      entityId: removed.id,
+      details: {
+        principalType: removed.principalType,
+        principalId: removed.principalId,
+        membershipRole: removed.membershipRole,
+      },
+    });
+    res.status(204).send();
+  });
+
   router.post(
     "/admin/users/:userId/promote-instance-admin",
     async (req, res) => {

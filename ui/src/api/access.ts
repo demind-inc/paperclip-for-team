@@ -94,6 +94,9 @@ export const accessApi = {
   listMembers: (companyId: string) =>
     api.get<CompanyMembership[]>(`/companies/${companyId}/members`),
 
+  removeMember: (companyId: string, memberId: string) =>
+    api.delete(`/companies/${companyId}/members/${memberId}`),
+
   createOpenClawInvitePrompt: (
     companyId: string,
     input: {

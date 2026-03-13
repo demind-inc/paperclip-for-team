@@ -9,7 +9,7 @@ import { secretsApi } from "../api/secrets";
 import { githubIntegrationsApi } from "../api/githubIntegrations";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
-import { Settings, Check, User } from "lucide-react";
+import { Settings, Check, User, Trash2 } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
@@ -210,6 +210,13 @@ export function CompanySettings() {
     [members]
   );
   const userMembersCount = userMembers.length;
+  const removeMemberMutation = useMutation({
+    mutationFn: ({ companyId, memberId }: { companyId: string; memberId: string }) =>
+      accessApi.removeMember(companyId, memberId),
+    onSuccess: (_, { companyId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.access.members(companyId) });
+    },
+  });
   const archiveMutation = useMutation({
     mutationFn: ({
       companyId,
@@ -540,20 +547,59 @@ export function CompanySettings() {
                       : m.principalId.slice(0, 12) +
                         (m.principalId.length > 12 ? "…" : ""));
                   const role = m.membershipRole ?? "member";
+                  const isLastOwner =
+                    role === "owner" &&
+                    userMembers.filter(
+                      (u) => (u.membershipRole ?? "member") === "owner"
+                    ).length <= 1;
+                  const removeDisabled = isLastOwner || removeMemberMutation.isPending;
                   return (
                     <li
                       key={m.id}
                       className="flex items-center gap-2 text-sm py-1 px-2 rounded-md bg-muted/30"
                     >
                       <User className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{label}</span>
+                      <span className="truncate flex-1 min-w-0">{label}</span>
                       <span className="shrink-0 text-xs text-muted-foreground capitalize">
                         {role}
                       </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                        disabled={removeDisabled}
+                        title={
+                          isLastOwner
+                            ? "Cannot remove the last owner"
+                            : "Remove from team"
+                        }
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Remove ${label} from the team? They will lose access to this company.`
+                            )
+                          )
+                            return;
+                          removeMemberMutation.mutate({
+                            companyId: selectedCompanyId!,
+                            memberId: m.id,
+                          });
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </li>
                   );
                 })}
               </ul>
+              {removeMemberMutation.isError && (
+                <p className="text-sm text-destructive mt-1">
+                  {removeMemberMutation.error instanceof Error
+                    ? removeMemberMutation.error.message
+                    : "Failed to remove member"}
+                </p>
+              )}
             </div>
           )}
           <p className="text-xs text-muted-foreground">
