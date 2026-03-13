@@ -1,3 +1,4 @@
+/// <reference path="../types/express.d.ts" />
 import type { Request } from "express";
 import { forbidden, unauthorized } from "../errors.js";
 

@@ -1,3 +1,4 @@
+/// <reference path="../types/express.d.ts" />
 import { Router } from "express";
 import type { Db } from "@paperclipai/db";
 import { and, eq, sql } from "drizzle-orm";

@@ -1,3 +1,4 @@
+/// <reference path="../types/express.d.ts" />
 import { Router, type Request, type Response } from "express";
 import multer from "multer";
 import type { Db } from "@paperclipai/db";

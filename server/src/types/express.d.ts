@@ -1,5 +1,3 @@
-export {};
-
 // Augment Express Request with `actor`.
 //
 // Important: Use module augmentation (not global `namespace Express`) so this
@@ -15,9 +13,16 @@ declare module "express-serve-static-core" {
       isInstanceAdmin?: boolean;
       keyId?: string;
       runId?: string;
-      source?: "local_implicit" | "session" | "agent_key" | "agent_jwt" | "none";
+      source?:
+        | "local_implicit"
+        | "session"
+        | "agent_key"
+        | "agent_jwt"
+        | "none";
     };
     /** Set by auth middleware when session is resolved (Better Auth or Supabase); used by get-session. */
     sessionUser?: { id: string; email: string | null; name: string | null };
   }
 }
+
+export {};
