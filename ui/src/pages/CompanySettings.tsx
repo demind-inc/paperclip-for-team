@@ -4,11 +4,12 @@ import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
+import { authApi } from "../api/auth";
 import { secretsApi } from "../api/secrets";
 import { githubIntegrationsApi } from "../api/githubIntegrations";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
-import { Settings, Check } from "lucide-react";
+import { Settings, Check, User } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
@@ -186,15 +187,22 @@ export function CompanySettings() {
     },
   });
 
+  const { data: session } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+    enabled: !!selectedCompanyId,
+  });
+  const currentUserId = session?.user?.id ?? session?.session?.userId;
   const { data: members } = useQuery({
     queryKey: queryKeys.access.members(selectedCompanyId!),
     queryFn: () => accessApi.listMembers(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
-  const userMembersCount = useMemo(
-    () => (members ?? []).filter((m) => m.principalType === "user").length,
+  const userMembers = useMemo(
+    () => (members ?? []).filter((m) => m.principalType === "user"),
     [members],
   );
+  const userMembersCount = userMembers.length;
   const archiveMutation = useMutation({
     mutationFn: ({
       companyId,
@@ -483,6 +491,32 @@ export function CompanySettings() {
               >
                 Copy link
               </Button>
+            </div>
+          )}
+          {userMembers.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">Team members</p>
+              <ul className="space-y-1.5">
+                {userMembers.map((m) => {
+                  const label =
+                    currentUserId && m.principalId === currentUserId
+                      ? "Me"
+                      : m.principalId.slice(0, 12) + (m.principalId.length > 12 ? "…" : "");
+                  const role = m.membershipRole ?? "member";
+                  return (
+                    <li
+                      key={m.id}
+                      className="flex items-center gap-2 text-sm py-1 px-2 rounded-md bg-muted/30"
+                    >
+                      <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{label}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground capitalize">
+                        {role}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
           <p className="text-xs text-muted-foreground">

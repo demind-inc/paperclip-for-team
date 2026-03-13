@@ -15,6 +15,7 @@ import type { Db } from "@paperclipai/db";
 import {
   agentApiKeys,
   authUsers,
+  companies,
   invites,
   joinRequests
 } from "@paperclipai/db";
@@ -761,7 +762,8 @@ export function normalizeAgentDefaultsForJoin(input: {
 function toInviteSummaryResponse(
   req: Request,
   token: string,
-  invite: typeof invites.$inferSelect
+  invite: typeof invites.$inferSelect,
+  companyName?: string | null
 ) {
   const baseUrl = requestBaseUrl(req);
   const onboardingPath = `/api/invites/${token}/onboarding`;
@@ -770,6 +772,7 @@ function toInviteSummaryResponse(
   return {
     id: invite.id,
     companyId: invite.companyId,
+    companyName: companyName ?? null,
     inviteType: invite.inviteType,
     allowedJoinTypes: invite.allowedJoinTypes,
     expiresAt: invite.expiresAt,
@@ -1739,7 +1742,17 @@ export function accessRoutes(
       throw notFound("Invite not found");
     }
 
-    res.json(toInviteSummaryResponse(req, token, invite));
+    let companyName: string | null = null;
+    if (invite.companyId) {
+      const company = await db
+        .select({ name: companies.name })
+        .from(companies)
+        .where(eq(companies.id, invite.companyId))
+        .then((rows) => rows[0] ?? null);
+      companyName = company?.name ?? null;
+    }
+
+    res.json(toInviteSummaryResponse(req, token, invite, companyName));
   });
 
   router.get("/invites/:token/onboarding", async (req, res) => {

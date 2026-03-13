@@ -129,7 +129,7 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   const { data: members } = useQuery({
     queryKey: queryKeys.access.members(companyId!),
     queryFn: () => accessApi.listMembers(companyId!),
-    enabled: !!companyId && assigneeOpen,
+    enabled: !!companyId,
   });
 
   const { data: projects } = useQuery({
@@ -337,10 +337,16 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     </>
   );
 
-  const userMembers = useMemo(
-    () => (members ?? []).filter((m) => m.principalType === "user"),
-    [members],
-  );
+  const userMembers = useMemo(() => {
+    const users = (members ?? []).filter((m) => m.principalType === "user");
+    if (!currentUserId) return users;
+    const hasCurrentUser = users.some((m) => m.principalId === currentUserId);
+    if (hasCurrentUser) return users;
+    return [
+      { id: `user-${currentUserId}`, principalType: "user" as const, principalId: currentUserId, companyId: companyId!, status: "active" as const, membershipRole: null, createdAt: new Date(), updatedAt: new Date() },
+      ...users,
+    ];
+  }, [members, currentUserId, companyId]);
   const assigneeContent = (
     <>
       <input
@@ -375,6 +381,11 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             {creatorUserLabel ? `Assign to ${creatorUserLabel === "Me" ? "me" : creatorUserLabel}` : "Assign to requester"}
           </button>
         )}
+        {userMembers.length > 0 && (
+          <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            Team
+          </div>
+        )}
         {userMembers
           .filter((m) => {
             if (!assigneeSearch.trim()) return true;
@@ -398,9 +409,14 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
               >
                 <User className="h-3 w-3 shrink-0 text-muted-foreground" />
                 {label}
-              </button>
-            );
+            </button>
+          );
           })}
+        {sortedAgents.length > 0 && (
+          <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            Agents
+          </div>
+        )}
         {sortedAgents
           .filter((a) => {
             if (!assigneeSearch.trim()) return true;

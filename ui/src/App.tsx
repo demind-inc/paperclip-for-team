@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Navigate, Outlet, Route, Routes, useLocation } from "@/lib/router";
-import { useQuery } from "@tanstack/react-query";
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from "@/lib/router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Layout } from "./components/Layout";
 import { OnboardingWizard } from "./components/OnboardingWizard";
@@ -201,6 +201,20 @@ function UnprefixedBoardRedirect() {
 function NoCompaniesStartPage({ autoOpen = true }: { autoOpen?: boolean }) {
   const { openOnboarding } = useDialog();
   const opened = useRef(false);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { data: session } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+    retry: false,
+  });
+  const signOutMutation = useMutation({
+    mutationFn: () => authApi.signOut(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+      navigate("/auth", { replace: true });
+    },
+  });
 
   useEffect(() => {
     if (!autoOpen) return;
@@ -216,8 +230,17 @@ function NoCompaniesStartPage({ autoOpen = true }: { autoOpen?: boolean }) {
         <p className="mt-2 text-sm text-muted-foreground">
           Get started by creating a company.
         </p>
-        <div className="mt-4">
+        <div className="mt-4 flex flex-wrap items-center gap-2">
           <Button onClick={() => openOnboarding()}>New Company</Button>
+          {session && (
+            <Button
+              variant="ghost"
+              onClick={() => signOutMutation.mutate()}
+              disabled={signOutMutation.isPending}
+            >
+              Log out
+            </Button>
+          )}
         </div>
       </div>
     </div>

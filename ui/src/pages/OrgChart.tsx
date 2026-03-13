@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useNavigate } from "@/lib/router";
 import { useQuery } from "@tanstack/react-query";
 import { agentsApi, type OrgNode } from "../api/agents";
+import { accessApi } from "../api/access";
+import { authApi } from "../api/auth";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { queryKeys } from "../lib/queryKeys";
@@ -9,7 +11,7 @@ import { agentUrl } from "../lib/utils";
 import { EmptyState } from "../components/EmptyState";
 import { PageSkeleton } from "../components/PageSkeleton";
 import { AgentIcon } from "../components/AgentIconPicker";
-import { Network } from "lucide-react";
+import { Network, User } from "lucide-react";
 import { AGENT_ROLE_LABELS, type Agent } from "@paperclipai/shared";
 
 // Layout constants
@@ -155,6 +157,22 @@ export function OrgChart() {
     enabled: !!selectedCompanyId,
   });
 
+  const { data: session } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+    enabled: !!selectedCompanyId,
+  });
+  const currentUserId = session?.user?.id ?? session?.session?.userId;
+  const { data: members } = useQuery({
+    queryKey: queryKeys.access.members(selectedCompanyId!),
+    queryFn: () => accessApi.listMembers(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+  const userMembers = useMemo(
+    () => (members ?? []).filter((m) => m.principalType === "user"),
+    [members],
+  );
+
   const agentMap = useMemo(() => {
     const m = new Map<string, Agent>();
     for (const a of agents ?? []) m.set(a.id, a);
@@ -262,11 +280,41 @@ export function OrgChart() {
     return <PageSkeleton variant="org-chart" />;
   }
 
-  if (orgTree && orgTree.length === 0) {
-    return <EmptyState icon={Network} message="No organizational hierarchy defined." />;
-  }
+  const hasAgents = orgTree && orgTree.length > 0;
+  const hasTeam = userMembers.length > 0;
 
   return (
+    <div className="space-y-4">
+      {hasTeam && (
+        <div className="rounded-lg border border-border bg-card px-4 py-3">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">
+            Team
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {userMembers.map((m) => {
+              const label =
+                currentUserId && m.principalId === currentUserId
+                  ? "Me"
+                  : m.principalId.slice(0, 12) + (m.principalId.length > 12 ? "…" : "");
+              const role = m.membershipRole ?? "member";
+              return (
+                <div
+                  key={m.id}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 text-sm"
+                >
+                  <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span>{label}</span>
+                  <span className="text-xs text-muted-foreground capitalize">{role}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {!hasAgents ? (
+        <EmptyState icon={Network} message="No organizational hierarchy defined." />
+      ) : (
     <div
       ref={containerRef}
       className="w-full h-[calc(100vh-4rem)] overflow-hidden relative bg-muted/20 border border-border rounded-lg"
@@ -418,6 +466,8 @@ export function OrgChart() {
           );
         })}
       </div>
+    </div>
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { api } from "./client";
 type InviteSummary = {
   id: string;
   companyId: string | null;
+  companyName?: string | null;
   inviteType: "company_join" | "bootstrap_ceo";
   allowedJoinTypes: "human" | "agent" | "both";
   expiresAt: string;
