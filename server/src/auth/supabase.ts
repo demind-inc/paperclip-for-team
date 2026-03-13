@@ -149,3 +149,51 @@ export async function resolveSupabaseSessionFromHeaders(
   if (!token) return null;
   return resolveSupabaseSessionFromToken(token, opts);
 }
+
+export type SupabaseUserProfile = {
+  email: string | null;
+  name: string | null;
+};
+
+/**
+ * Fetch a user's profile (email, name) from Supabase Auth Admin API.
+ * Requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to be set.
+ * Returns null if not configured, user not found, or on error.
+ */
+export async function getSupabaseUserById(
+  supabaseUrl: string,
+  serviceRoleKey: string,
+  userId: string,
+): Promise<SupabaseUserProfile | null> {
+  const base = supabaseUrl.replace(/\/$/, "");
+  const url = `${base}/auth/v1/admin/users/${encodeURIComponent(userId)}`;
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        apikey: serviceRoleKey,
+        "Content-Type": "application/json",
+      },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      email?: string | null;
+      user_metadata?: { full_name?: string; name?: string } | null;
+    };
+    const email =
+      typeof data.email === "string" && data.email.trim()
+        ? data.email.trim()
+        : null;
+    const meta = data.user_metadata;
+    const name =
+      (typeof meta?.full_name === "string" && meta.full_name.trim()
+        ? meta.full_name.trim()
+        : null) ??
+      (typeof meta?.name === "string" && meta.name.trim() ? meta.name.trim() : null) ??
+      (email ? email.split("@")[0] : null);
+    return { email, name };
+  } catch {
+    return null;
+  }
+}

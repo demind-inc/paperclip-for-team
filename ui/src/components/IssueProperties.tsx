@@ -10,14 +10,22 @@ import { projectsApi } from "../api/projects";
 import { useCompany } from "../context/CompanyContext";
 import { queryKeys } from "../lib/queryKeys";
 import { useProjectOrder } from "../hooks/useProjectOrder";
-import { getRecentAssigneeIds, sortAgentsByRecency, trackRecentAssignee } from "../lib/recent-assignees";
+import {
+  getRecentAssigneeIds,
+  sortAgentsByRecency,
+  trackRecentAssignee,
+} from "../lib/recent-assignees";
 import { StatusIcon } from "./StatusIcon";
 import { PriorityIcon } from "./PriorityIcon";
 import { Identity } from "./Identity";
 import { formatDate, cn, projectUrl } from "../lib/utils";
 import { timeAgo } from "../lib/timeAgo";
 import { Separator } from "@/components/ui/separator";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { User, Hexagon, ArrowUpRight, Tag, Plus, Trash2 } from "lucide-react";
 import { AgentIcon } from "./AgentIconPicker";
 
@@ -30,10 +38,18 @@ interface IssuePropertiesProps {
   inline?: boolean;
 }
 
-function PropertyRow({ label, children }: { label: string; children: React.ReactNode }) {
+function PropertyRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-center gap-3 py-1.5">
-      <span className="text-xs text-muted-foreground shrink-0 w-20">{label}</span>
+      <span className="text-xs text-muted-foreground shrink-0 w-20">
+        {label}
+      </span>
       <div className="flex items-center gap-1.5 min-w-0 flex-1">{children}</div>
     </div>
   );
@@ -65,7 +81,7 @@ function PropertyPicker({
 }) {
   const btnCn = cn(
     "inline-flex items-center gap-1.5 cursor-pointer hover:bg-accent/50 rounded px-1 -mx-1 py-0.5 transition-colors",
-    triggerClassName,
+    triggerClassName
   );
 
   if (inline) {
@@ -78,7 +94,12 @@ function PropertyPicker({
           {extra}
         </PropertyRow>
         {open && (
-          <div className={cn("rounded-md border border-border bg-popover p-1 mb-2", popoverClassName)}>
+          <div
+            className={cn(
+              "rounded-md border border-border bg-popover p-1 mb-2",
+              popoverClassName
+            )}
+          >
             {children}
           </div>
         )}
@@ -92,7 +113,11 @@ function PropertyPicker({
         <PopoverTrigger asChild>
           <button className={btnCn}>{triggerContent}</button>
         </PopoverTrigger>
-        <PopoverContent className={cn("p-1", popoverClassName)} align={popoverAlign} collisionPadding={16}>
+        <PopoverContent
+          className={cn("p-1", popoverClassName)}
+          align={popoverAlign}
+          collisionPadding={16}
+        >
           {children}
         </PopoverContent>
       </Popover>
@@ -101,7 +126,11 @@ function PropertyPicker({
   );
 }
 
-export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProps) {
+export function IssueProperties({
+  issue,
+  onUpdate,
+  inline,
+}: IssuePropertiesProps) {
   const { selectedCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const companyId = issue.companyId ?? selectedCompanyId;
@@ -150,9 +179,12 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   });
 
   const createLabel = useMutation({
-    mutationFn: (data: { name: string; color: string }) => issuesApi.createLabel(companyId!, data),
+    mutationFn: (data: { name: string; color: string }) =>
+      issuesApi.createLabel(companyId!, data),
     onSuccess: async (created) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.issues.labels(companyId!) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.issues.labels(companyId!),
+      });
       onUpdate({ labelIds: [...(issue.labelIds ?? []), created.id] });
       setNewLabelName("");
     },
@@ -161,9 +193,15 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   const deleteLabel = useMutation({
     mutationFn: (labelId: string) => issuesApi.deleteLabel(labelId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.labels(companyId!) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.list(companyId!) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.issues.detail(issue.id) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.issues.labels(companyId!),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.issues.list(companyId!),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.issues.detail(issue.id),
+      });
     },
   });
 
@@ -189,13 +227,17 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
   const currentProject = issue.projectId
     ? orderedProjects.find((project) => project.id === issue.projectId) ?? null
     : null;
-  const currentProjectExecutionWorkspacePolicy = SHOW_EXPERIMENTAL_ISSUE_WORKTREE_UI
-    ? currentProject?.executionWorkspacePolicy ?? null
-    : null;
-  const currentProjectSupportsExecutionWorkspace = Boolean(currentProjectExecutionWorkspacePolicy?.enabled);
-  const usesIsolatedExecutionWorkspace = issue.executionWorkspaceSettings?.mode === "isolated"
-    ? true
-    : issue.executionWorkspaceSettings?.mode === "project_primary"
+  const currentProjectExecutionWorkspacePolicy =
+    SHOW_EXPERIMENTAL_ISSUE_WORKTREE_UI
+      ? currentProject?.executionWorkspacePolicy ?? null
+      : null;
+  const currentProjectSupportsExecutionWorkspace = Boolean(
+    currentProjectExecutionWorkspacePolicy?.enabled
+  );
+  const usesIsolatedExecutionWorkspace =
+    issue.executionWorkspaceSettings?.mode === "isolated"
+      ? true
+      : issue.executionWorkspaceSettings?.mode === "project_primary"
       ? false
       : currentProjectExecutionWorkspacePolicy?.defaultMode === "isolated";
   const projectLink = (id: string | null) => {
@@ -204,10 +246,17 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     return project ? projectUrl(project) : `/projects/${id}`;
   };
 
-  const recentAssigneeIds = useMemo(() => getRecentAssigneeIds(), [assigneeOpen]);
+  const recentAssigneeIds = useMemo(
+    () => getRecentAssigneeIds(),
+    [assigneeOpen]
+  );
   const sortedAgents = useMemo(
-    () => sortAgentsByRecency((agents ?? []).filter((a) => a.status !== "terminated"), recentAssigneeIds),
-    [agents, recentAssigneeIds],
+    () =>
+      sortAgentsByRecency(
+        (agents ?? []).filter((a) => a.status !== "terminated"),
+        recentAssigneeIds
+      ),
+    [agents, recentAssigneeIds]
   );
 
   const assignee = issue.assigneeAgentId
@@ -218,37 +267,40 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
       ? userId === "local-board"
         ? "Board"
         : currentUserId && userId === currentUserId
-          ? "Me"
-          : userId.slice(0, 5)
+        ? "Me"
+        : userId.slice(0, 5)
       : null;
   const assigneeUserLabel = userLabel(issue.assigneeUserId);
   const creatorUserLabel = userLabel(issue.createdByUserId);
 
-  const labelsTrigger = (issue.labels ?? []).length > 0 ? (
-    <div className="flex items-center gap-1 flex-wrap">
-      {(issue.labels ?? []).slice(0, 3).map((label) => (
-        <span
-          key={label.id}
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border"
-          style={{
-            borderColor: label.color,
-            backgroundColor: `${label.color}22`,
-            color: label.color,
-          }}
-        >
-          {label.name}
-        </span>
-      ))}
-      {(issue.labels ?? []).length > 3 && (
-        <span className="text-xs text-muted-foreground">+{(issue.labels ?? []).length - 3}</span>
-      )}
-    </div>
-  ) : (
-    <>
-      <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-      <span className="text-sm text-muted-foreground">No labels</span>
-    </>
-  );
+  const labelsTrigger =
+    (issue.labels ?? []).length > 0 ? (
+      <div className="flex items-center gap-1 flex-wrap">
+        {(issue.labels ?? []).slice(0, 3).map((label) => (
+          <span
+            key={label.id}
+            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border"
+            style={{
+              borderColor: label.color,
+              backgroundColor: `${label.color}22`,
+              color: label.color,
+            }}
+          >
+            {label.name}
+          </span>
+        ))}
+        {(issue.labels ?? []).length > 3 && (
+          <span className="text-xs text-muted-foreground">
+            +{(issue.labels ?? []).length - 3}
+          </span>
+        )}
+      </div>
+    ) : (
+      <>
+        <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">No labels</span>
+      </>
+    );
 
   const labelsContent = (
     <>
@@ -276,7 +328,10 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
                   )}
                   onClick={() => toggleLabel(label.id)}
                 >
-                  <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: label.color }} />
+                  <span
+                    className="h-2.5 w-2.5 rounded-full shrink-0"
+                    style={{ backgroundColor: label.color }}
+                  />
                   <span className="truncate">{label.name}</span>
                 </button>
                 <button
@@ -343,7 +398,16 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     const hasCurrentUser = users.some((m) => m.principalId === currentUserId);
     if (hasCurrentUser) return users;
     return [
-      { id: `user-${currentUserId}`, principalType: "user" as const, principalId: currentUserId, companyId: companyId!, status: "active" as const, membershipRole: null, createdAt: new Date(), updatedAt: new Date() },
+      {
+        id: `user-${currentUserId}`,
+        principalType: "user" as const,
+        principalId: currentUserId,
+        companyId: companyId!,
+        status: "active" as const,
+        membershipRole: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
       ...users,
     ];
   }, [members, currentUserId, companyId]);
@@ -362,7 +426,10 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
             !issue.assigneeAgentId && !issue.assigneeUserId && "bg-accent"
           )}
-          onClick={() => { onUpdate({ assigneeAgentId: null, assigneeUserId: null }); setAssigneeOpen(false); }}
+          onClick={() => {
+            onUpdate({ assigneeAgentId: null, assigneeUserId: null });
+            setAssigneeOpen(false);
+          }}
         >
           No assignee
         </button>
@@ -370,15 +437,22 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           <button
             className={cn(
               "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-              issue.assigneeUserId === issue.createdByUserId && "bg-accent",
+              issue.assigneeUserId === issue.createdByUserId && "bg-accent"
             )}
             onClick={() => {
-              onUpdate({ assigneeAgentId: null, assigneeUserId: issue.createdByUserId });
+              onUpdate({
+                assigneeAgentId: null,
+                assigneeUserId: issue.createdByUserId,
+              });
               setAssigneeOpen(false);
             }}
           >
             <User className="h-3 w-3 shrink-0 text-muted-foreground" />
-            {creatorUserLabel ? `Assign to ${creatorUserLabel === "Me" ? "me" : creatorUserLabel}` : "Assign to requester"}
+            {creatorUserLabel
+              ? `Assign to ${
+                  creatorUserLabel === "Me" ? "me" : creatorUserLabel
+                }`
+              : "Assign to requester"}
           </button>
         )}
         {userMembers.length > 0 && (
@@ -390,27 +464,42 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           .filter((m) => {
             if (!assigneeSearch.trim()) return true;
             const q = assigneeSearch.toLowerCase();
-            const label = m.principalId === currentUserId ? "me" : m.principalId.slice(0, 8);
-            return label.toLowerCase().includes(q) || (m.principalId === currentUserId && "me".includes(q));
+            const display =
+              m.name?.trim() ||
+              m.email?.trim() ||
+              (m.principalId === currentUserId
+                ? "me"
+                : m.principalId.slice(0, 8));
+            return (
+              display.toLowerCase().includes(q) ||
+              (m.principalId === currentUserId && "me".includes(q))
+            );
           })
           .map((m) => {
-            const label = userLabel(m.principalId) ?? m.principalId.slice(0, 8);
+            const label =
+              m.name?.trim() ||
+              m.email?.trim() ||
+              userLabel(m.principalId) ||
+              m.principalId.slice(0, 8);
             return (
               <button
                 key={m.id}
                 className={cn(
                   "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-                  issue.assigneeUserId === m.principalId && "bg-accent",
+                  issue.assigneeUserId === m.principalId && "bg-accent"
                 )}
                 onClick={() => {
-                  onUpdate({ assigneeAgentId: null, assigneeUserId: m.principalId });
+                  onUpdate({
+                    assigneeAgentId: null,
+                    assigneeUserId: m.principalId,
+                  });
                   setAssigneeOpen(false);
                 }}
               >
                 <User className="h-3 w-3 shrink-0 text-muted-foreground" />
                 {label}
-            </button>
-          );
+              </button>
+            );
           })}
         {sortedAgents.length > 0 && (
           <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
@@ -424,18 +513,25 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             return a.name.toLowerCase().includes(q);
           })
           .map((a) => (
-          <button
-            key={a.id}
-            className={cn(
-              "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
-              a.id === issue.assigneeAgentId && "bg-accent"
-            )}
-            onClick={() => { trackRecentAssignee(a.id); onUpdate({ assigneeAgentId: a.id, assigneeUserId: null }); setAssigneeOpen(false); }}
-          >
-            <AgentIcon icon={a.icon} className="shrink-0 h-3 w-3 text-muted-foreground" />
-            {a.name}
-          </button>
-        ))}
+            <button
+              key={a.id}
+              className={cn(
+                "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50",
+                a.id === issue.assigneeAgentId && "bg-accent"
+              )}
+              onClick={() => {
+                trackRecentAssignee(a.id);
+                onUpdate({ assigneeAgentId: a.id, assigneeUserId: null });
+                setAssigneeOpen(false);
+              }}
+            >
+              <AgentIcon
+                icon={a.icon}
+                className="shrink-0 h-3 w-3 text-muted-foreground"
+              />
+              {a.name}
+            </button>
+          ))}
       </div>
     </>
   );
@@ -444,7 +540,11 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
     <>
       <span
         className="shrink-0 h-3 w-3 rounded-sm"
-        style={{ backgroundColor: orderedProjects.find((p) => p.id === issue.projectId)?.color ?? "#6366f1" }}
+        style={{
+          backgroundColor:
+            orderedProjects.find((p) => p.id === issue.projectId)?.color ??
+            "#6366f1",
+        }}
       />
       <span className="text-sm truncate">{projectName(issue.projectId)}</span>
     </>
@@ -484,29 +584,37 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             return p.name.toLowerCase().includes(q);
           })
           .map((p) => (
-          <button
-            key={p.id}
-            className={cn(
-              "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 whitespace-nowrap",
-              p.id === issue.projectId && "bg-accent"
-            )}
-            onClick={() => {
-              onUpdate({
-                projectId: p.id,
-                executionWorkspaceSettings: SHOW_EXPERIMENTAL_ISSUE_WORKTREE_UI && p.executionWorkspacePolicy?.enabled
-                  ? { mode: p.executionWorkspacePolicy.defaultMode === "isolated" ? "isolated" : "project_primary" }
-                  : null,
-              });
-              setProjectOpen(false);
-            }}
-          >
-            <span
-              className="shrink-0 h-3 w-3 rounded-sm"
-              style={{ backgroundColor: p.color ?? "#6366f1" }}
-            />
-            {p.name}
-          </button>
-        ))}
+            <button
+              key={p.id}
+              className={cn(
+                "flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50 whitespace-nowrap",
+                p.id === issue.projectId && "bg-accent"
+              )}
+              onClick={() => {
+                onUpdate({
+                  projectId: p.id,
+                  executionWorkspaceSettings:
+                    SHOW_EXPERIMENTAL_ISSUE_WORKTREE_UI &&
+                    p.executionWorkspacePolicy?.enabled
+                      ? {
+                          mode:
+                            p.executionWorkspacePolicy.defaultMode ===
+                            "isolated"
+                              ? "isolated"
+                              : "project_primary",
+                        }
+                      : null,
+                });
+                setProjectOpen(false);
+              }}
+            >
+              <span
+                className="shrink-0 h-3 w-3 rounded-sm"
+                style={{ backgroundColor: p.color ?? "#6366f1" }}
+              />
+              {p.name}
+            </button>
+          ))}
       </div>
     </>
   );
@@ -534,7 +642,10 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           inline={inline}
           label="Labels"
           open={labelsOpen}
-          onOpenChange={(open) => { setLabelsOpen(open); if (!open) setLabelSearch(""); }}
+          onOpenChange={(open) => {
+            setLabelsOpen(open);
+            if (!open) setLabelSearch("");
+          }}
           triggerContent={labelsTrigger}
           triggerClassName="min-w-0 max-w-full"
           popoverClassName="w-64"
@@ -546,18 +657,23 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           inline={inline}
           label="Assignee"
           open={assigneeOpen}
-          onOpenChange={(open) => { setAssigneeOpen(open); if (!open) setAssigneeSearch(""); }}
+          onOpenChange={(open) => {
+            setAssigneeOpen(open);
+            if (!open) setAssigneeSearch("");
+          }}
           triggerContent={assigneeTrigger}
           popoverClassName="w-52"
-          extra={issue.assigneeAgentId ? (
-            <Link
-              to={`/agents/${issue.assigneeAgentId}`}
-              className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          ) : undefined}
+          extra={
+            issue.assigneeAgentId ? (
+              <Link
+                to={`/agents/${issue.assigneeAgentId}`}
+                className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            ) : undefined
+          }
         >
           {assigneeContent}
         </PropertyPicker>
@@ -566,19 +682,24 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
           inline={inline}
           label="Project"
           open={projectOpen}
-          onOpenChange={(open) => { setProjectOpen(open); if (!open) setProjectSearch(""); }}
+          onOpenChange={(open) => {
+            setProjectOpen(open);
+            if (!open) setProjectSearch("");
+          }}
           triggerContent={projectTrigger}
           triggerClassName="min-w-0 max-w-full"
           popoverClassName="w-fit min-w-[11rem]"
-          extra={issue.projectId ? (
-            <Link
-              to={projectLink(issue.projectId)!}
-              className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ArrowUpRight className="h-3 w-3" />
-            </Link>
-          ) : undefined}
+          extra={
+            issue.projectId ? (
+              <Link
+                to={projectLink(issue.projectId)!}
+                className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-accent/50 transition-colors text-muted-foreground hover:text-foreground"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArrowUpRight className="h-3 w-3" />
+              </Link>
+            ) : undefined
+          }
         >
           {projectContent}
         </PropertyPicker>
@@ -588,7 +709,9 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
             <div className="flex items-center justify-between gap-3 rounded-md border border-border px-2 py-1.5 w-full">
               <div className="min-w-0">
                 <div className="text-sm">
-                  {usesIsolatedExecutionWorkspace ? "Isolated issue checkout" : "Project primary checkout"}
+                  {usesIsolatedExecutionWorkspace
+                    ? "Isolated issue checkout"
+                    : "Project primary checkout"}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
                   Toggle whether this issue runs in its own execution workspace.
@@ -597,13 +720,15 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
               <button
                 className={cn(
                   "relative inline-flex h-5 w-9 items-center rounded-full transition-colors",
-                  usesIsolatedExecutionWorkspace ? "bg-green-600" : "bg-muted",
+                  usesIsolatedExecutionWorkspace ? "bg-green-600" : "bg-muted"
                 )}
                 type="button"
                 onClick={() =>
                   onUpdate({
                     executionWorkspaceSettings: {
-                      mode: usesIsolatedExecutionWorkspace ? "project_primary" : "isolated",
+                      mode: usesIsolatedExecutionWorkspace
+                        ? "project_primary"
+                        : "isolated",
                     },
                   })
                 }
@@ -611,7 +736,9 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
                 <span
                   className={cn(
                     "inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform",
-                    usesIsolatedExecutionWorkspace ? "translate-x-4.5" : "translate-x-0.5",
+                    usesIsolatedExecutionWorkspace
+                      ? "translate-x-4.5"
+                      : "translate-x-0.5"
                   )}
                 />
               </button>
@@ -622,7 +749,9 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
         {issue.parentId && (
           <PropertyRow label="Parent">
             <Link
-              to={`/issues/${issue.ancestors?.[0]?.identifier ?? issue.parentId}`}
+              to={`/issues/${
+                issue.ancestors?.[0]?.identifier ?? issue.parentId
+              }`}
               className="text-sm hover:underline"
             >
               {issue.ancestors?.[0]?.title ?? issue.parentId.slice(0, 8)}
@@ -647,7 +776,13 @@ export function IssueProperties({ issue, onUpdate, inline }: IssuePropertiesProp
                 to={`/agents/${issue.createdByAgentId}`}
                 className="hover:underline"
               >
-                <Identity name={agentName(issue.createdByAgentId) ?? issue.createdByAgentId.slice(0, 8)} size="sm" />
+                <Identity
+                  name={
+                    agentName(issue.createdByAgentId) ??
+                    issue.createdByAgentId.slice(0, 8)
+                  }
+                  size="sm"
+                />
               </Link>
             ) : (
               <>

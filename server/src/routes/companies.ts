@@ -110,7 +110,18 @@ export function companyRoutes(db: Db) {
   router.post("/", validate(createCompanySchema), async (req, res) => {
     assertBoard(req);
     const company = await svc.create(req.body);
-    await access.ensureMembership(company.id, "user", req.actor.userId ?? "local-board", "owner", "active");
+    const profile =
+      req.sessionUser != null
+        ? { name: req.sessionUser.name ?? null, email: req.sessionUser.email ?? null }
+        : undefined;
+    await access.ensureMembership(
+      company.id,
+      "user",
+      req.actor.userId ?? "local-board",
+      "owner",
+      "active",
+      profile
+    );
     await logActivity(db, {
       companyId: company.id,
       actorType: "user",

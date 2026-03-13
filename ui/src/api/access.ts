@@ -1,4 +1,8 @@
-import type { AgentAdapterType, CompanyMembership, JoinRequest } from "@paperclipai/shared";
+import type {
+  AgentAdapterType,
+  CompanyMembership,
+  JoinRequest,
+} from "@paperclipai/shared";
 import { api } from "./client";
 
 type InviteSummary = {
@@ -20,12 +24,12 @@ type InviteSummary = {
 type AcceptInviteInput =
   | { requestType: "human" }
   | {
-    requestType: "agent";
-    agentName: string;
-    adapterType?: AgentAdapterType;
-    capabilities?: string | null;
-    agentDefaultsPayload?: Record<string, unknown> | null;
-  };
+      requestType: "agent";
+      agentName: string;
+      adapterType?: AgentAdapterType;
+      capabilities?: string | null;
+      agentDefaultsPayload?: Record<string, unknown> | null;
+    };
 
 type AgentJoinRequestAccepted = JoinRequest & {
   claimSecret: string;
@@ -84,9 +88,8 @@ export const accessApi = {
       defaultsPayload?: Record<string, unknown> | null;
       agentMessage?: string | null;
       email?: string | null;
-    } = {},
-  ) =>
-    api.post<CompanyInviteCreated>(`/companies/${companyId}/invites`, input),
+    } = {}
+  ) => api.post<CompanyInviteCreated>(`/companies/${companyId}/invites`, input),
 
   listMembers: (companyId: string) =>
     api.get<CompanyMembership[]>(`/companies/${companyId}/members`),
@@ -95,11 +98,11 @@ export const accessApi = {
     companyId: string,
     input: {
       agentMessage?: string | null;
-    } = {},
+    } = {}
   ) =>
     api.post<CompanyInviteCreated>(
       `/companies/${companyId}/openclaw/invite-prompt`,
-      input,
+      input
     ),
 
   getInvite: (token: string) => api.get<InviteSummary>(`/invites/${token}`),
@@ -107,29 +110,47 @@ export const accessApi = {
     api.get<InviteOnboardingManifest>(`/invites/${token}/onboarding`),
 
   acceptInvite: (token: string, input: AcceptInviteInput) =>
-    api.post<AgentJoinRequestAccepted | JoinRequest | { bootstrapAccepted: true; userId: string }>(
-      `/invites/${token}/accept`,
-      input,
-    ),
+    api.post<
+      | AgentJoinRequestAccepted
+      | JoinRequest
+      | { bootstrapAccepted: true; userId: string }
+    >(`/invites/${token}/accept`, input),
 
-  listJoinRequests: (companyId: string, status: "pending_approval" | "approved" | "rejected" = "pending_approval") =>
-    api.get<JoinRequest[]>(`/companies/${companyId}/join-requests?status=${status}`),
+  listJoinRequests: (
+    companyId: string,
+    status: "pending_approval" | "approved" | "rejected" = "pending_approval"
+  ) =>
+    api.get<JoinRequest[]>(
+      `/companies/${companyId}/join-requests?status=${status}`
+    ),
 
   approveJoinRequest: (companyId: string, requestId: string) =>
-    api.post<JoinRequest>(`/companies/${companyId}/join-requests/${requestId}/approve`, {}),
-
-  rejectJoinRequest: (companyId: string, requestId: string) =>
-    api.post<JoinRequest>(`/companies/${companyId}/join-requests/${requestId}/reject`, {}),
-
-  claimJoinRequestApiKey: (requestId: string, claimSecret: string) =>
-    api.post<{ keyId: string; token: string; agentId: string; createdAt: string }>(
-      `/join-requests/${requestId}/claim-api-key`,
-      { claimSecret },
+    api.post<JoinRequest>(
+      `/companies/${companyId}/join-requests/${requestId}/approve`,
+      {}
     ),
 
+  rejectJoinRequest: (companyId: string, requestId: string) =>
+    api.post<JoinRequest>(
+      `/companies/${companyId}/join-requests/${requestId}/reject`,
+      {}
+    ),
+
+  claimJoinRequestApiKey: (requestId: string, claimSecret: string) =>
+    api.post<{
+      keyId: string;
+      token: string;
+      agentId: string;
+      createdAt: string;
+    }>(`/join-requests/${requestId}/claim-api-key`, { claimSecret }),
+
   getBoardClaimStatus: (token: string, code: string) =>
-    api.get<BoardClaimStatus>(`/board-claim/${token}?code=${encodeURIComponent(code)}`),
+    api.get<BoardClaimStatus>(
+      `/board-claim/${token}?code=${encodeURIComponent(code)}`
+    ),
 
   claimBoard: (token: string, code: string) =>
-    api.post<{ claimed: true; userId: string }>(`/board-claim/${token}/claim`, { code }),
+    api.post<{ claimed: true; userId: string }>(`/board-claim/${token}/claim`, {
+      code,
+    }),
 };

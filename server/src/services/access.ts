@@ -192,13 +192,32 @@ export function accessService(db: Db) {
     principalId: string,
     membershipRole: string | null = "member",
     status: "pending" | "active" | "suspended" = "active",
+    profile?: { name?: string | null; email?: string | null },
   ) {
     const existing = await getMembership(companyId, principalType, principalId);
+    const setProfile =
+      principalType === "user" && profile
+        ? {
+            name: profile.name ?? null,
+            email: profile.email ?? null,
+          }
+        : undefined;
+
     if (existing) {
-      if (existing.status !== status || existing.membershipRole !== membershipRole) {
+      const roleOrStatusChanged =
+        existing.status !== status || existing.membershipRole !== membershipRole;
+      const profileUpdate =
+        setProfile &&
+        (existing.name !== setProfile.name || existing.email !== setProfile.email);
+      if (roleOrStatusChanged || profileUpdate) {
         const updated = await db
           .update(companyMemberships)
-          .set({ status, membershipRole, updatedAt: new Date() })
+          .set({
+            status,
+            membershipRole,
+            ...(setProfile ?? {}),
+            updatedAt: new Date(),
+          })
           .where(eq(companyMemberships.id, existing.id))
           .returning()
           .then((rows) => rows[0] ?? null);
@@ -215,6 +234,7 @@ export function accessService(db: Db) {
         principalId,
         status,
         membershipRole,
+        ...(setProfile ?? {}),
       })
       .returning()
       .then((rows) => rows[0]);

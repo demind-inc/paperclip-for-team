@@ -10,6 +10,10 @@ export const companyMemberships = pgTable(
     principalId: text("principal_id").notNull(),
     status: text("status").notNull().default("active"),
     membershipRole: text("membership_role"),
+    /** Display name for user principals; set when membership is created/updated. */
+    name: text("name"),
+    /** Email for user principals; set when membership is created/updated. */
+    email: text("email"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

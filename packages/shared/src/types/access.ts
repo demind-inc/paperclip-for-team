@@ -19,6 +19,10 @@ export interface CompanyMembership {
   membershipRole: string | null;
   createdAt: Date;
   updatedAt: Date;
+  /** Display name for user principals; stored on company_memberships when membership is created/updated. */
+  name?: string | null;
+  /** Email for user principals; stored on company_memberships when membership is created/updated. */
+  email?: string | null;
 }
 
 export interface PrincipalPermissionGrant {
@@ -57,6 +61,7 @@ export interface JoinRequest {
   requestIp: string;
   requestingUserId: string | null;
   requestEmailSnapshot: string | null;
+  requestNameSnapshot: string | null;
   agentName: string | null;
   adapterType: AgentAdapterType | null;
   capabilities: string | null;

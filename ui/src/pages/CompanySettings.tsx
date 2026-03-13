@@ -14,7 +14,7 @@ import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
   ToggleField,
-  HintIcon
+  HintIcon,
 } from "../components/agent-config-primitives";
 
 type AgentSnippetInput = {
@@ -28,7 +28,7 @@ export function CompanySettings() {
     companies,
     selectedCompany,
     selectedCompanyId,
-    setSelectedCompanyId
+    setSelectedCompanyId,
   } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
@@ -53,13 +53,17 @@ export function CompanySettings() {
   }, [selectedCompany]);
 
   const secretsQuery = useQuery({
-    queryKey: selectedCompanyId ? queryKeys.secrets.list(selectedCompanyId) : ["secrets", "none"],
+    queryKey: selectedCompanyId
+      ? queryKeys.secrets.list(selectedCompanyId)
+      : ["secrets", "none"],
     queryFn: () => secretsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
 
   const githubIntegrationsQuery = useQuery({
-    queryKey: selectedCompanyId ? queryKeys.githubIntegrations.list(selectedCompanyId) : ["github-integrations", "none"],
+    queryKey: selectedCompanyId
+      ? queryKeys.githubIntegrations.list(selectedCompanyId)
+      : ["github-integrations", "none"],
     queryFn: () => githubIntegrationsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
@@ -95,22 +99,21 @@ export function CompanySettings() {
     }) => companiesApi.update(selectedCompanyId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
-    }
+    },
   });
 
   const settingsMutation = useMutation({
     mutationFn: (requireApproval: boolean) =>
       companiesApi.update(selectedCompanyId!, {
-        requireBoardApprovalForNewAgents: requireApproval
+        requireBoardApprovalForNewAgents: requireApproval,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
-    }
+    },
   });
 
   const inviteMutation = useMutation({
-    mutationFn: () =>
-      accessApi.createOpenClawInvitePrompt(selectedCompanyId!),
+    mutationFn: () => accessApi.createOpenClawInvitePrompt(selectedCompanyId!),
     onSuccess: async (invite) => {
       setInviteError(null);
       const base = window.location.origin.replace(/\/+$/, "");
@@ -132,13 +135,13 @@ export function CompanySettings() {
             manifest.onboarding.connectivity?.connectionCandidates ?? null,
           testResolutionUrl:
             manifest.onboarding.connectivity?.testResolutionEndpoint?.url ??
-            null
+            null,
         });
       } catch {
         snippet = buildAgentSnippet({
           onboardingTextUrl: absoluteUrl,
           connectionCandidates: null,
-          testResolutionUrl: null
+          testResolutionUrl: null,
         });
       }
       setInviteSnippet(snippet);
@@ -151,14 +154,14 @@ export function CompanySettings() {
         /* clipboard may not be available */
       }
       queryClient.invalidateQueries({
-        queryKey: queryKeys.sidebarBadges(selectedCompanyId!)
+        queryKey: queryKeys.sidebarBadges(selectedCompanyId!),
       });
     },
     onError: (err) => {
       setInviteError(
         err instanceof Error ? err.message : "Failed to create invite"
       );
-    }
+    },
   });
 
   useEffect(() => {
@@ -180,10 +183,14 @@ export function CompanySettings() {
       setTeamInviteError(null);
       const base = window.location.origin.replace(/\/+$/, "");
       setTeamInviteLink(`${base}/invite/${data.token}`);
-      queryClient.invalidateQueries({ queryKey: queryKeys.access.members(selectedCompanyId!) });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.access.members(selectedCompanyId!),
+      });
     },
     onError: (err) => {
-      setTeamInviteError(err instanceof Error ? err.message : "Failed to create invite");
+      setTeamInviteError(
+        err instanceof Error ? err.message : "Failed to create invite"
+      );
     },
   });
 
@@ -200,13 +207,13 @@ export function CompanySettings() {
   });
   const userMembers = useMemo(
     () => (members ?? []).filter((m) => m.principalType === "user"),
-    [members],
+    [members]
   );
   const userMembersCount = userMembers.length;
   const archiveMutation = useMutation({
     mutationFn: ({
       companyId,
-      nextCompanyId
+      nextCompanyId,
     }: {
       companyId: string;
       nextCompanyId: string | null;
@@ -216,12 +223,12 @@ export function CompanySettings() {
         setSelectedCompanyId(nextCompanyId);
       }
       await queryClient.invalidateQueries({
-        queryKey: queryKeys.companies.all
+        queryKey: queryKeys.companies.all,
       });
       await queryClient.invalidateQueries({
-        queryKey: queryKeys.companies.stats
+        queryKey: queryKeys.companies.stats,
       });
-    }
+    },
   });
 
   const githubConnectMutation = useMutation({
@@ -237,11 +244,14 @@ export function CompanySettings() {
       }
       const companyId = selectedCompanyId!;
       const secrets = secretsQuery.data ?? [];
-      const existing = secrets.find((s) => s.name === suggestedSecretName) ?? null;
-      const secret =
-        existing
-          ? await secretsApi.rotate(existing.id, { value: token })
-          : await secretsApi.create(companyId, { name: suggestedSecretName, value: token });
+      const existing =
+        secrets.find((s) => s.name === suggestedSecretName) ?? null;
+      const secret = existing
+        ? await secretsApi.rotate(existing.id, { value: token })
+        : await secretsApi.create(companyId, {
+            name: suggestedSecretName,
+            value: token,
+          });
       await githubIntegrationsApi.upsert(companyId, {
         owner,
         repo,
@@ -253,26 +263,40 @@ export function CompanySettings() {
     onSuccess: async ({ owner, repo }) => {
       setGithubStatus(`Connected to ${owner}/${repo}. You can sync now.`);
       setGithubToken("");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.secrets.list(selectedCompanyId!) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.secrets.list(selectedCompanyId!),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!),
+      });
     },
     onError: (err) => {
-      setGithubStatus(err instanceof Error ? err.message : "Failed to connect GitHub");
+      setGithubStatus(
+        err instanceof Error ? err.message : "Failed to connect GitHub"
+      );
     },
   });
 
   // Note: importing/syncing issues happens on the Issues page.
 
   const githubToggleMutation = useMutation({
-    mutationFn: async (input: { owner: string; repo: string; enabled: boolean }) => {
+    mutationFn: async (input: {
+      owner: string;
+      repo: string;
+      enabled: boolean;
+    }) => {
       const companyId = selectedCompanyId!;
       return githubIntegrationsApi.setEnabled(companyId, input);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!),
+      });
     },
     onError: (err) => {
-      setGithubStatus(err instanceof Error ? err.message : "Failed to update integration");
+      setGithubStatus(
+        err instanceof Error ? err.message : "Failed to update integration"
+      );
     },
   });
 
@@ -283,18 +307,21 @@ export function CompanySettings() {
     },
     onSuccess: async () => {
       setGithubStatus("Integration removed.");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!),
+      });
     },
     onError: (err) => {
-      setGithubStatus(err instanceof Error ? err.message : "Failed to remove integration");
+      setGithubStatus(
+        err instanceof Error ? err.message : "Failed to remove integration"
+      );
     },
   });
-
 
   useEffect(() => {
     setBreadcrumbs([
       { label: selectedCompany?.name ?? "Company", href: "/dashboard" },
-      { label: "Settings" }
+      { label: "Settings" },
     ]);
   }, [setBreadcrumbs, selectedCompany?.name]);
 
@@ -310,7 +337,7 @@ export function CompanySettings() {
     generalMutation.mutate({
       name: companyName.trim(),
       description: description.trim() || null,
-      brandColor: brandColor || null
+      brandColor: brandColor || null,
     });
   }
 
@@ -450,11 +477,14 @@ export function CompanySettings() {
         </div>
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <p className="text-sm text-muted-foreground">
-            Invite team members by email. They sign in (or sign up) and accept the invite to join this org.
+            Invite team members by email. They sign in (or sign up) and accept
+            the invite to join this org.
           </p>
           <div className="flex flex-wrap items-end gap-2">
             <div className="min-w-[200px] flex-1">
-              <label className="mb-1 block text-xs text-muted-foreground">Email</label>
+              <label className="mb-1 block text-xs text-muted-foreground">
+                Email
+              </label>
               <input
                 className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
                 type="email"
@@ -468,7 +498,9 @@ export function CompanySettings() {
               onClick={() => teamInviteMutation.mutate()}
               disabled={teamInviteMutation.isPending || !teamInviteEmail.trim()}
             >
-              {teamInviteMutation.isPending ? "Creating…" : "Create invite link"}
+              {teamInviteMutation.isPending
+                ? "Creating…"
+                : "Create invite link"}
             </Button>
           </div>
           {teamInviteError && (
@@ -495,13 +527,18 @@ export function CompanySettings() {
           )}
           {userMembers.length > 0 && (
             <div className="mt-3 space-y-1.5">
-              <p className="text-xs font-medium text-muted-foreground">Team members</p>
+              <p className="text-xs font-medium text-muted-foreground">
+                Team members
+              </p>
               <ul className="space-y-1.5">
                 {userMembers.map((m) => {
                   const label =
-                    currentUserId && m.principalId === currentUserId
+                    m.name?.trim() ||
+                    m.email?.trim() ||
+                    (currentUserId && m.principalId === currentUserId
                       ? "Me"
-                      : m.principalId.slice(0, 12) + (m.principalId.length > 12 ? "…" : "");
+                      : m.principalId.slice(0, 12) +
+                        (m.principalId.length > 12 ? "…" : ""));
                   const role = m.membershipRole ?? "member";
                   return (
                     <li
@@ -520,7 +557,8 @@ export function CompanySettings() {
             </div>
           )}
           <p className="text-xs text-muted-foreground">
-            {userMembersCount} team member{userMembersCount !== 1 ? "s" : ""} in this org.
+            {userMembersCount} team member{userMembersCount !== 1 ? "s" : ""} in
+            this org.
           </p>
         </div>
       </div>
@@ -605,7 +643,8 @@ export function CompanySettings() {
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <div className="text-sm font-medium">GitHub Issues</div>
           <div className="text-xs text-muted-foreground">
-            Store your repo + token here. Importing issues is done from the Issues page.
+            Store your repo + token here. Importing issues is done from the
+            Issues page.
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Owner" hint="GitHub organization or user.">
@@ -660,11 +699,17 @@ export function CompanySettings() {
               Connected repos
             </div>
             {githubIntegrationsQuery.isLoading ? (
-              <div className="text-xs text-muted-foreground">Loading integrations…</div>
+              <div className="text-xs text-muted-foreground">
+                Loading integrations…
+              </div>
             ) : githubIntegrationsQuery.isError ? (
-              <div className="text-xs text-destructive">Failed to load GitHub integrations.</div>
+              <div className="text-xs text-destructive">
+                Failed to load GitHub integrations.
+              </div>
             ) : (githubIntegrationsQuery.data?.length ?? 0) === 0 ? (
-              <div className="text-xs text-muted-foreground">No GitHub repos connected yet.</div>
+              <div className="text-xs text-muted-foreground">
+                No GitHub repos connected yet.
+              </div>
             ) : (
               <div className="space-y-2">
                 {githubIntegrationsQuery.data!.map((i) => (
@@ -678,14 +723,24 @@ export function CompanySettings() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {i.enabled ? "Enabled" : "Disabled"}
-                        {i.lastSyncedAt ? ` • Last synced ${new Date(i.lastSyncedAt).toLocaleString()}` : ""}
+                        {i.lastSyncedAt
+                          ? ` • Last synced ${new Date(
+                              i.lastSyncedAt
+                            ).toLocaleString()}`
+                          : ""}
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => githubToggleMutation.mutate({ owner: i.owner, repo: i.repo, enabled: !i.enabled })}
+                        onClick={() =>
+                          githubToggleMutation.mutate({
+                            owner: i.owner,
+                            repo: i.repo,
+                            enabled: !i.enabled,
+                          })
+                        }
                         disabled={githubToggleMutation.isPending}
                       >
                         {i.enabled ? "Disable" : "Enable"}
@@ -694,9 +749,14 @@ export function CompanySettings() {
                         size="sm"
                         variant="destructive"
                         onClick={() => {
-                          const ok = window.confirm(`Remove GitHub integration for ${i.owner}/${i.repo}? Imported issues will stay in Paperclip.`);
+                          const ok = window.confirm(
+                            `Remove GitHub integration for ${i.owner}/${i.repo}? Imported issues will stay in Paperclip.`
+                          );
                           if (!ok) return;
-                          githubRemoveMutation.mutate({ owner: i.owner, repo: i.repo });
+                          githubRemoveMutation.mutate({
+                            owner: i.owner,
+                            repo: i.repo,
+                          });
                         }}
                         disabled={githubRemoveMutation.isPending}
                       >
@@ -709,9 +769,7 @@ export function CompanySettings() {
             )}
           </div>
           {githubStatus && (
-            <div className="text-xs text-muted-foreground">
-              {githubStatus}
-            </div>
+            <div className="text-xs text-muted-foreground">{githubStatus}</div>
           )}
           {secretsQuery.isError && (
             <div className="text-xs text-destructive">
@@ -753,7 +811,7 @@ export function CompanySettings() {
                   )?.id ?? null;
                 archiveMutation.mutate({
                   companyId: selectedCompanyId,
-                  nextCompanyId
+                  nextCompanyId,
                 });
               }}
             >
@@ -773,7 +831,6 @@ export function CompanySettings() {
           </div>
         </div>
       </div>
-
     </div>
   );
 }

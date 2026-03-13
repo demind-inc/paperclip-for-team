@@ -3,7 +3,7 @@ import {
   createHash,
   generateKeyPairSync,
   randomBytes,
-  timingSafeEqual
+  timingSafeEqual,
 } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,7 +17,7 @@ import {
   authUsers,
   companies,
   invites,
-  joinRequests
+  joinRequests,
 } from "@paperclipai/db";
 import {
   acceptInviteSchema,
@@ -27,7 +27,7 @@ import {
   listJoinRequestsQuerySchema,
   updateMemberPermissionsSchema,
   updateUserCompanyAccessSchema,
-  PERMISSION_KEYS
+  PERMISSION_KEYS,
 } from "@paperclipai/shared";
 import type { DeploymentExposure, DeploymentMode } from "@paperclipai/shared";
 import {
@@ -35,7 +35,7 @@ import {
   conflict,
   notFound,
   unauthorized,
-  badRequest
+  badRequest,
 } from "../errors.js";
 import { logger } from "../middleware/logger.js";
 import { validate } from "../middleware/validate.js";
@@ -44,12 +44,12 @@ import {
   agentService,
   deduplicateAgentName,
   logActivity,
-  notifyHireApproved
+  notifyHireApproved,
 } from "../services/index.js";
 import { assertCompanyAccess } from "./authz.js";
 import {
   claimBoardOwnership,
-  inspectBoardClaimChallenge
+  inspectBoardClaimChallenge,
 } from "../board-claim.js";
 
 function hashToken(token: string) {
@@ -105,7 +105,7 @@ function readSkillMarkdown(skillName: string): string | null {
   const candidates = [
     path.resolve(moduleDir, "../../skills", normalized, "SKILL.md"), // published: dist/routes/ -> <pkg>/skills/
     path.resolve(process.cwd(), "skills", normalized, "SKILL.md"), // cwd (e.g. monorepo root)
-    path.resolve(moduleDir, "../../../skills", normalized, "SKILL.md") // dev: src/routes/ -> repo root/skills/
+    path.resolve(moduleDir, "../../../skills", normalized, "SKILL.md"), // dev: src/routes/ -> repo root/skills/
   ];
   for (const skillPath of candidates) {
     try {
@@ -177,7 +177,7 @@ function normalizeHeaderValue(
     "header",
     "raw",
     "text",
-    "string"
+    "string",
   ];
   for (const key of candidateKeys) {
     if (!Object.prototype.hasOwnProperty.call(value, key)) continue;
@@ -407,7 +407,7 @@ export function mergeJoinDefaultsPayloadForReplay(
 
   const merged: Record<string, unknown> = {
     ...(existingDefaultsPayload as Record<string, unknown>),
-    ...(nextDefaultsPayload as Record<string, unknown>)
+    ...(nextDefaultsPayload as Record<string, unknown>),
   };
 
   const existingHeaders = normalizeHeaderMap(
@@ -419,7 +419,7 @@ export function mergeJoinDefaultsPayloadForReplay(
   if (existingHeaders || nextHeaders) {
     merged.headers = {
       ...(existingHeaders ?? {}),
-      ...(nextHeaders ?? {})
+      ...(nextHeaders ?? {}),
     };
   } else if (Object.prototype.hasOwnProperty.call(merged, "headers")) {
     delete merged.headers;
@@ -465,7 +465,7 @@ function summarizeSecretForLog(
   return {
     present: true,
     length: trimmed.length,
-    sha256Prefix: hashToken(trimmed).slice(0, 12)
+    sha256Prefix: hashToken(trimmed).slice(0, 12),
   };
 }
 
@@ -502,7 +502,7 @@ function summarizeOpenClawGatewayDefaultsForLog(defaultsPayload: unknown) {
     devicePrivateKeyPem: defaults
       ? summarizeSecretForLog(defaults.devicePrivateKeyPem)
       : null,
-    gatewayToken: summarizeSecretForLog(gatewayTokenValue)
+    gatewayToken: summarizeSecretForLog(gatewayTokenValue),
   };
 }
 
@@ -529,8 +529,7 @@ export function normalizeAgentDefaultsForJoin(input: {
       level: "warn",
       message:
         "No OpenClaw gateway config was provided in agentDefaultsPayload.",
-      hint:
-        "Include agentDefaultsPayload.url and headers.x-openclaw-token for OpenClaw gateway joins."
+      hint: "Include agentDefaultsPayload.url and headers.x-openclaw-token for OpenClaw gateway joins.",
     });
     fatalErrors.push(
       "agentDefaultsPayload is required for adapterType=openclaw_gateway"
@@ -538,7 +537,7 @@ export function normalizeAgentDefaultsForJoin(input: {
     return {
       normalized: null as Record<string, unknown> | null,
       diagnostics,
-      fatalErrors
+      fatalErrors,
     };
   }
 
@@ -552,7 +551,7 @@ export function normalizeAgentDefaultsForJoin(input: {
       code: "openclaw_gateway_url_missing",
       level: "warn",
       message: "OpenClaw gateway URL is missing.",
-      hint: "Set agentDefaultsPayload.url to ws:// or wss:// gateway URL."
+      hint: "Set agentDefaultsPayload.url to ws:// or wss:// gateway URL.",
     });
     fatalErrors.push("agentDefaultsPayload.url is required");
   } else {
@@ -562,7 +561,7 @@ export function normalizeAgentDefaultsForJoin(input: {
         diagnostics.push({
           code: "openclaw_gateway_url_protocol",
           level: "warn",
-          message: `OpenClaw gateway URL must use ws:// or wss:// (got ${gatewayUrl.protocol}).`
+          message: `OpenClaw gateway URL must use ws:// or wss:// (got ${gatewayUrl.protocol}).`,
         });
         fatalErrors.push(
           "agentDefaultsPayload.url must use ws:// or wss:// for openclaw_gateway"
@@ -572,14 +571,14 @@ export function normalizeAgentDefaultsForJoin(input: {
         diagnostics.push({
           code: "openclaw_gateway_url_configured",
           level: "info",
-          message: `Gateway endpoint set to ${gatewayUrl.toString()}`
+          message: `Gateway endpoint set to ${gatewayUrl.toString()}`,
         });
       }
     } catch {
       diagnostics.push({
         code: "openclaw_gateway_url_invalid",
         level: "warn",
-        message: `Invalid OpenClaw gateway URL: ${rawGatewayUrl}`
+        message: `Invalid OpenClaw gateway URL: ${rawGatewayUrl}`,
       });
       fatalErrors.push("agentDefaultsPayload.url is not a valid URL");
     }
@@ -589,7 +588,9 @@ export function normalizeAgentDefaultsForJoin(input: {
   const gatewayToken =
     headerMapGetIgnoreCase(headers, "x-openclaw-token") ??
     headerMapGetIgnoreCase(headers, "x-openclaw-auth") ??
-    tokenFromAuthorizationHeader(headerMapGetIgnoreCase(headers, "authorization"));
+    tokenFromAuthorizationHeader(
+      headerMapGetIgnoreCase(headers, "authorization")
+    );
   if (gatewayToken && !headerMapHasKeyIgnoreCase(headers, "x-openclaw-token")) {
     headers["x-openclaw-token"] = gatewayToken;
   }
@@ -602,8 +603,7 @@ export function normalizeAgentDefaultsForJoin(input: {
       code: "openclaw_gateway_auth_header_missing",
       level: "warn",
       message: "Gateway auth token is missing from agent defaults.",
-      hint:
-        "Set agentDefaultsPayload.headers.x-openclaw-token (or legacy x-openclaw-auth)."
+      hint: "Set agentDefaultsPayload.headers.x-openclaw-token (or legacy x-openclaw-auth).",
     });
     fatalErrors.push(
       "agentDefaultsPayload.headers.x-openclaw-token (or x-openclaw-auth) is required"
@@ -612,9 +612,10 @@ export function normalizeAgentDefaultsForJoin(input: {
     diagnostics.push({
       code: "openclaw_gateway_auth_header_too_short",
       level: "warn",
-      message: `Gateway auth token appears too short (${gatewayToken.trim().length} chars).`,
-      hint:
-        "Use the full gateway auth token from ~/.openclaw/openclaw.json (typically long random string)."
+      message: `Gateway auth token appears too short (${
+        gatewayToken.trim().length
+      } chars).`,
+      hint: "Use the full gateway auth token from ~/.openclaw/openclaw.json (typically long random string).",
     });
     fatalErrors.push(
       "agentDefaultsPayload.headers.x-openclaw-token is too short; expected a full gateway token"
@@ -623,7 +624,7 @@ export function normalizeAgentDefaultsForJoin(input: {
     diagnostics.push({
       code: "openclaw_gateway_auth_header_configured",
       level: "info",
-      message: "Gateway auth token configured."
+      message: "Gateway auth token configured.",
     });
   }
 
@@ -646,7 +647,7 @@ export function normalizeAgentDefaultsForJoin(input: {
       code: "openclaw_gateway_device_key_configured",
       level: "info",
       message:
-        "Gateway device key configured. Pairing approvals should persist for this agent."
+        "Gateway device key configured. Pairing approvals should persist for this agent.",
     });
   } else if (!disableDeviceAuth) {
     try {
@@ -655,7 +656,7 @@ export function normalizeAgentDefaultsForJoin(input: {
         code: "openclaw_gateway_device_key_generated",
         level: "info",
         message:
-          "Generated persistent gateway device key for this join. Pairing approvals should persist for this agent."
+          "Generated persistent gateway device key for this join. Pairing approvals should persist for this agent.",
       });
     } catch (err) {
       diagnostics.push({
@@ -664,8 +665,7 @@ export function normalizeAgentDefaultsForJoin(input: {
         message: `Failed to generate gateway device key: ${
           err instanceof Error ? err.message : String(err)
         }`,
-        hint:
-          "Set agentDefaultsPayload.devicePrivateKeyPem explicitly or set disableDeviceAuth=true."
+        hint: "Set agentDefaultsPayload.devicePrivateKeyPem explicitly or set disableDeviceAuth=true.",
       });
       fatalErrors.push(
         "Failed to generate gateway device key. Set devicePrivateKeyPem or disableDeviceAuth=true."
@@ -685,7 +685,8 @@ export function normalizeAgentDefaultsForJoin(input: {
   }
 
   const timeoutSec =
-    typeof defaults.timeoutSec === "number" && Number.isFinite(defaults.timeoutSec)
+    typeof defaults.timeoutSec === "number" &&
+    Number.isFinite(defaults.timeoutSec)
       ? Math.floor(defaults.timeoutSec)
       : typeof defaults.timeoutSec === "string"
       ? Number.parseInt(defaults.timeoutSec.trim(), 10)
@@ -737,21 +738,21 @@ export function normalizeAgentDefaultsForJoin(input: {
         diagnostics.push({
           code: "openclaw_gateway_paperclip_api_url_protocol",
           level: "warn",
-          message: `paperclipApiUrl must use http:// or https:// (got ${parsedPaperclipApiUrl.protocol}).`
+          message: `paperclipApiUrl must use http:// or https:// (got ${parsedPaperclipApiUrl.protocol}).`,
         });
       } else {
         normalized.paperclipApiUrl = parsedPaperclipApiUrl.toString();
         diagnostics.push({
           code: "openclaw_gateway_paperclip_api_url_configured",
           level: "info",
-          message: `paperclipApiUrl set to ${parsedPaperclipApiUrl.toString()}`
+          message: `paperclipApiUrl set to ${parsedPaperclipApiUrl.toString()}`,
         });
       }
     } catch {
       diagnostics.push({
         code: "openclaw_gateway_paperclip_api_url_invalid",
         level: "warn",
-        message: `Invalid paperclipApiUrl: ${rawPaperclipApiUrl}`
+        message: `Invalid paperclipApiUrl: ${rawPaperclipApiUrl}`,
       });
     }
   }
@@ -786,7 +787,7 @@ function toInviteSummaryResponse(
     skillIndexUrl: baseUrl
       ? `${baseUrl}/api/skills/index`
       : "/api/skills/index",
-    inviteMessage
+    inviteMessage,
   };
 }
 
@@ -820,7 +821,7 @@ function buildOnboardingDiscoveryDiagnostics(input: {
       level: "warn",
       message:
         "Onboarding URL resolves to loopback hostname. Remote OpenClaw agents cannot reach localhost on your Paperclip host.",
-      hint: "Use a reachable hostname/IP (for example Tailscale hostname, Docker host alias, or public domain)."
+      hint: "Use a reachable hostname/IP (for example Tailscale hostname, Docker host alias, or public domain).",
     });
   }
 
@@ -833,7 +834,7 @@ function buildOnboardingDiscoveryDiagnostics(input: {
       code: "openclaw_onboarding_private_loopback_bind",
       level: "warn",
       message: "Paperclip is bound to loopback in authenticated/private mode.",
-      hint: "Run with a reachable bind host or use pnpm dev --tailscale-auth for private-network onboarding."
+      hint: "Run with a reachable bind host or use pnpm dev --tailscale-auth for private-network onboarding.",
     });
   }
 
@@ -849,7 +850,7 @@ function buildOnboardingDiscoveryDiagnostics(input: {
       code: "openclaw_onboarding_private_host_not_allowed",
       level: "warn",
       message: `Onboarding host "${apiHost}" is not in allowed hostnames for authenticated/private mode.`,
-      hint: `Run pnpm paperclipai allowed-hostname ${apiHost}`
+      hint: `Run pnpm paperclipai allowed-hostname ${apiHost}`,
     });
   }
 
@@ -923,12 +924,12 @@ function buildInviteOnboardingManifest(
     deploymentMode: opts.deploymentMode,
     deploymentExposure: opts.deploymentExposure,
     bindHost: opts.bindHost,
-    allowedHostnames: opts.allowedHostnames
+    allowedHostnames: opts.allowedHostnames,
   });
   const connectionCandidates = buildOnboardingConnectionCandidates({
     apiBaseUrl: baseUrl,
     bindHost: opts.bindHost,
-    allowedHostnames: opts.allowedHostnames
+    allowedHostnames: opts.allowedHostnames,
   });
 
   return {
@@ -944,20 +945,20 @@ function buildInviteOnboardingManifest(
         adapterType: "Use 'openclaw_gateway' for OpenClaw Gateway agents",
         capabilities: "Optional capability summary",
         agentDefaultsPayload:
-          "Adapter config for OpenClaw gateway. MUST include url (ws:// or wss://) and headers.x-openclaw-token (or legacy x-openclaw-auth). Optional fields: paperclipApiUrl, waitTimeoutMs, sessionKeyStrategy, sessionKey, role, scopes, disableDeviceAuth, devicePrivateKeyPem."
+          "Adapter config for OpenClaw gateway. MUST include url (ws:// or wss://) and headers.x-openclaw-token (or legacy x-openclaw-auth). Optional fields: paperclipApiUrl, waitTimeoutMs, sessionKeyStrategy, sessionKey, role, scopes, disableDeviceAuth, devicePrivateKeyPem.",
       },
       registrationEndpoint: {
         method: "POST",
         path: registrationEndpointPath,
-        url: registrationEndpointUrl
+        url: registrationEndpointUrl,
       },
       claimEndpointTemplate: {
         method: "POST",
         path: "/api/join-requests/{requestId}/claim-api-key",
         body: {
           claimSecret:
-            "one-time claim secret returned when the join request is created"
-        }
+            "one-time claim secret returned when the join request is created",
+        },
       },
       connectivity: {
         deploymentMode: opts.deploymentMode,
@@ -970,20 +971,20 @@ function buildInviteOnboardingManifest(
           opts.deploymentMode === "authenticated" &&
           opts.deploymentExposure === "private"
             ? "If OpenClaw runs on another machine, ensure the Paperclip hostname is reachable and allowed via `pnpm paperclipai allowed-hostname <host>`."
-            : "Ensure OpenClaw can reach this Paperclip API base URL for invite, claim, and skill bootstrap calls."
+            : "Ensure OpenClaw can reach this Paperclip API base URL for invite, claim, and skill bootstrap calls.",
       },
       textInstructions: {
         path: onboardingTextPath,
         url: onboardingTextUrl,
-        contentType: "text/plain"
+        contentType: "text/plain",
       },
       skill: {
         name: "paperclip",
         path: skillPath,
         url: skillUrl,
-        installPath: "~/.openclaw/skills/paperclip/SKILL.md"
-      }
-    }
+        installPath: "~/.openclaw/skills/paperclip/SKILL.md",
+      },
+    },
   };
 }
 
@@ -1144,7 +1145,7 @@ export function buildInviteOnboardingTextDocument(
     And set the PAPERCLIP_API_KEY and PAPERCLIP_API_URL in your environment variables as specified here:
     https://docs.openclaw.ai/help/environment
 
-    e.g. 
+    e.g.
 
     {
       env: {
@@ -1272,16 +1273,35 @@ function isLocalImplicit(req: Request) {
   return req.actor.type === "board" && req.actor.source === "local_implicit";
 }
 
-async function resolveActorEmail(db: Db, req: Request): Promise<string | null> {
-  if (isLocalImplicit(req)) return "local@paperclip.local";
+/** Resolve current actor's display name and email (session first, then auth_users). */
+async function resolveActorProfile(
+  db: Db,
+  req: Request
+): Promise<{ name: string | null; email: string | null }> {
+  if (isLocalImplicit(req))
+    return { name: "Local", email: "local@paperclip.local" };
+  const sessionUser = req.sessionUser;
+  if (sessionUser)
+    return {
+      name: sessionUser.name ?? null,
+      email: sessionUser.email ?? null,
+    };
   const userId = req.actor.userId;
-  if (!userId) return null;
+  if (!userId) return { name: null, email: null };
   const user = await db
-    .select({ email: authUsers.email })
+    .select({ name: authUsers.name, email: authUsers.email })
     .from(authUsers)
     .where(eq(authUsers.id, userId))
     .then((rows) => rows[0] ?? null);
-  return user?.email ?? null;
+  return {
+    name: user?.name ?? null,
+    email: user?.email ?? null,
+  };
+}
+
+async function resolveActorEmail(db: Db, req: Request): Promise<string | null> {
+  const { email } = await resolveActorProfile(db, req);
+  return email;
 }
 
 function grantsFromDefaults(
@@ -1313,7 +1333,7 @@ function grantsFromDefaults(
         typeof record.scope === "object" &&
         !Array.isArray(record.scope)
           ? (record.scope as Record<string, unknown>)
-          : null
+          : null,
     });
   }
   return result;
@@ -1341,7 +1361,7 @@ export function resolveJoinRequestAgentManagerId(
 function isInviteTokenHashCollisionError(error: unknown) {
   const candidates = [
     error,
-    (error as { cause?: unknown } | null)?.cause ?? null
+    (error as { cause?: unknown } | null)?.cause ?? null,
   ];
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== "object") continue;
@@ -1387,7 +1407,7 @@ async function probeInviteResolutionTarget(
     const response = await fetch(url, {
       method: "HEAD",
       redirect: "manual",
-      signal: controller.signal
+      signal: controller.signal,
     });
     const durationMs = Date.now() - startedAt;
     if (
@@ -1405,7 +1425,7 @@ async function probeInviteResolutionTarget(
         method: "HEAD",
         durationMs,
         httpStatus: response.status,
-        message: `Webhook endpoint responded to HEAD with HTTP ${response.status}.`
+        message: `Webhook endpoint responded to HEAD with HTTP ${response.status}.`,
       };
     }
     return {
@@ -1413,7 +1433,7 @@ async function probeInviteResolutionTarget(
       method: "HEAD",
       durationMs,
       httpStatus: response.status,
-      message: `Webhook endpoint probe returned HTTP ${response.status}.`
+      message: `Webhook endpoint probe returned HTTP ${response.status}.`,
     };
   } catch (error) {
     const durationMs = Date.now() - startedAt;
@@ -1423,7 +1443,7 @@ async function probeInviteResolutionTarget(
         method: "HEAD",
         durationMs,
         httpStatus: null,
-        message: `Webhook endpoint probe timed out after ${timeoutMs}ms.`
+        message: `Webhook endpoint probe timed out after ${timeoutMs}ms.`,
       };
     }
     return {
@@ -1434,7 +1454,7 @@ async function probeInviteResolutionTarget(
       message:
         error instanceof Error
           ? error.message
-          : "Webhook endpoint probe failed."
+          : "Webhook endpoint probe failed.",
     };
   } finally {
     clearTimeout(timeout);
@@ -1489,7 +1509,7 @@ export function accessRoutes(
     const claimed = await claimBoardOwnership(db, {
       token,
       code,
-      userId: req.actor.userId
+      userId: req.actor.userId,
     });
 
     if (claimed.status === "invalid")
@@ -1501,7 +1521,7 @@ export function accessRoutes(
     if (claimed.status === "claimed") {
       res.json({
         claimed: true,
-        userId: claimed.claimedByUserId ?? req.actor.userId
+        userId: claimed.claimedByUserId ?? req.actor.userId,
       });
       return;
     }
@@ -1554,7 +1574,11 @@ export function accessRoutes(
     }
     if (req.actor.type !== "board") throw unauthorized();
     if (isLocalImplicit(req)) return;
-    const allowed = await access.canUser(companyId, req.actor.userId, "users:invite");
+    const allowed = await access.canUser(
+      companyId,
+      req.actor.userId,
+      "users:invite"
+    );
     if (!allowed) throw forbidden("Permission denied");
   }
 
@@ -1571,7 +1595,9 @@ export function accessRoutes(
         ? input.agentMessage.trim() || null
         : null;
     const invitedEmail =
-      typeof input.email === "string" ? input.email.trim().toLowerCase() || null : null;
+      typeof input.email === "string"
+        ? input.email.trim().toLowerCase() || null
+        : null;
     const insertValues = {
       companyId: input.companyId,
       inviteType: "company_join" as const,
@@ -1594,7 +1620,7 @@ export function accessRoutes(
           .insert(invites)
           .values({
             ...insertValues,
-            tokenHash: hashToken(candidateToken)
+            tokenHash: hashToken(candidateToken),
           })
           .returning()
           .then((rows) => rows[0]);
@@ -1620,9 +1646,9 @@ export function accessRoutes(
         { name: "paperclip", path: "/api/skills/paperclip" },
         {
           name: "paperclip-create-agent",
-          path: "/api/skills/paperclip-create-agent"
-        }
-      ]
+          path: "/api/skills/paperclip-create-agent",
+        },
+      ],
     });
   });
 
@@ -1663,8 +1689,8 @@ export function accessRoutes(
           inviteType: created.inviteType,
           allowedJoinTypes: created.allowedJoinTypes,
           expiresAt: created.expiresAt.toISOString(),
-          hasAgentMessage: Boolean(normalizedAgentMessage)
-        }
+          hasAgentMessage: Boolean(normalizedAgentMessage),
+        },
       });
 
       const inviteSummary = toInviteSummaryResponse(req, token, created);
@@ -1674,7 +1700,7 @@ export function accessRoutes(
         inviteUrl: `/invite/${token}`,
         onboardingTextPath: inviteSummary.onboardingTextPath,
         onboardingTextUrl: inviteSummary.onboardingTextUrl,
-        inviteMessage: inviteSummary.inviteMessage
+        inviteMessage: inviteSummary.inviteMessage,
       });
     }
   );
@@ -1709,8 +1735,8 @@ export function accessRoutes(
           inviteType: created.inviteType,
           allowedJoinTypes: created.allowedJoinTypes,
           expiresAt: created.expiresAt.toISOString(),
-          hasAgentMessage: Boolean(normalizedAgentMessage)
-        }
+          hasAgentMessage: Boolean(normalizedAgentMessage),
+        },
       });
 
       const inviteSummary = toInviteSummaryResponse(req, token, created);
@@ -1720,7 +1746,7 @@ export function accessRoutes(
         inviteUrl: `/invite/${token}`,
         onboardingTextPath: inviteSummary.onboardingTextPath,
         onboardingTextUrl: inviteSummary.onboardingTextUrl,
-        inviteMessage: inviteSummary.inviteMessage
+        inviteMessage: inviteSummary.inviteMessage,
       });
     }
   );
@@ -1825,7 +1851,7 @@ export function accessRoutes(
       testResolutionPath: `/api/invites/${token}/test-resolution`,
       requestedUrl: target.toString(),
       timeoutMs,
-      ...probe
+      ...probe,
     });
   });
 
@@ -1881,7 +1907,7 @@ export function accessRoutes(
           inviteId: updatedInvite.id,
           inviteType: updatedInvite.inviteType,
           bootstrapAccepted: true,
-          userId
+          userId,
         });
         return;
       }
@@ -1923,7 +1949,7 @@ export function accessRoutes(
         !canReplayOpenClawGatewayInviteAccept({
           requestType,
           adapterType,
-          existingJoinRequest: existingJoinRequestForInvite
+          existingJoinRequest: existingJoinRequestForInvite,
         })
       ) {
         throw notFound("Invite not found");
@@ -1949,7 +1975,8 @@ export function accessRoutes(
               defaultsPayload: replayMergedDefaults,
               paperclipApiUrl: req.body.paperclipApiUrl ?? null,
               inboundOpenClawAuthHeader: req.header("x-openclaw-auth") ?? null,
-              inboundOpenClawTokenHeader: req.header("x-openclaw-token") ?? null
+              inboundOpenClawTokenHeader:
+                req.header("x-openclaw-token") ?? null,
             })
           : null;
 
@@ -1961,12 +1988,12 @@ export function accessRoutes(
               deploymentMode: opts.deploymentMode,
               deploymentExposure: opts.deploymentExposure,
               bindHost: opts.bindHost,
-              allowedHostnames: opts.allowedHostnames
+              allowedHostnames: opts.allowedHostnames,
             })
           : {
               normalized: null as Record<string, unknown> | null,
               diagnostics: [] as JoinDiagnostic[],
-              fatalErrors: [] as string[]
+              fatalErrors: [] as string[],
             };
 
       if (requestType === "agent" && joinDefaults.fatalErrors.length > 0) {
@@ -1979,11 +2006,11 @@ export function accessRoutes(
             inviteId: invite.id,
             joinRequestDiagnostics: joinDefaults.diagnostics.map((diag) => ({
               code: diag.code,
-              level: diag.level
+              level: diag.level,
             })),
             normalizedAgentDefaults: summarizeOpenClawGatewayDefaultsForLog(
               joinDefaults.normalized
-            )
+            ),
           },
           "invite accept normalized OpenClaw gateway defaults"
         );
@@ -1998,8 +2025,8 @@ export function accessRoutes(
         ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
         : null;
 
-      const actorEmail =
-        requestType === "human" ? await resolveActorEmail(db, req) : null;
+      const actorProfile =
+        requestType === "human" ? await resolveActorProfile(db, req) : null;
       const created = !inviteAlreadyAccepted
         ? await db.transaction(async (tx) => {
             await tx
@@ -2026,7 +2053,9 @@ export function accessRoutes(
                     ? req.actor.userId ?? "local-board"
                     : null,
                 requestEmailSnapshot:
-                  requestType === "human" ? actorEmail : null,
+                  requestType === "human" ? actorProfile?.email ?? null : null,
+                requestNameSnapshot:
+                  requestType === "human" ? actorProfile?.name ?? null : null,
                 agentName: requestType === "agent" ? req.body.agentName : null,
                 adapterType: requestType === "agent" ? adapterType : null,
                 capabilities:
@@ -2036,7 +2065,7 @@ export function accessRoutes(
                 agentDefaultsPayload:
                   requestType === "agent" ? joinDefaults.normalized : null,
                 claimSecretHash,
-                claimSecretExpiresAt
+                claimSecretExpiresAt,
               })
               .returning()
               .then((rows) => rows[0]);
@@ -2061,7 +2090,7 @@ export function accessRoutes(
               adapterType: requestType === "agent" ? adapterType : null,
               agentDefaultsPayload:
                 requestType === "agent" ? joinDefaults.normalized : null,
-              updatedAt: new Date()
+              updatedAt: new Date(),
             })
             .where(eq(joinRequests.id, replayJoinRequestId as string))
             .returning()
@@ -2087,11 +2116,11 @@ export function accessRoutes(
           : {};
         const nextAdapterConfig = {
           ...existingAdapterConfig,
-          ...(joinDefaults.normalized ?? {})
+          ...(joinDefaults.normalized ?? {}),
         };
         const updatedAgent = await agents.update(created.createdAgentId, {
           adapterType,
-          adapterConfig: nextAdapterConfig
+          adapterConfig: nextAdapterConfig,
         });
         if (!updatedAgent) {
           throw conflict("Approved join request agent not found");
@@ -2106,7 +2135,7 @@ export function accessRoutes(
           action: "agent.updated_from_join_replay",
           entityType: "agent",
           entityId: updatedAgent.id,
-          details: { inviteId: invite.id, joinRequestId: created.id }
+          details: { inviteId: invite.id, joinRequestId: created.id },
         });
       }
 
@@ -2154,8 +2183,8 @@ export function accessRoutes(
               code: diag.code,
               level: diag.level,
               message: diag.message,
-              hint: diag.hint ?? null
-            }))
+              hint: diag.hint ?? null,
+            })),
           },
           "invite accept persisted OpenClaw gateway join request"
         );
@@ -2165,7 +2194,7 @@ export function accessRoutes(
             {
               inviteId: invite.id,
               joinRequestId: created.id,
-              missingPersistedFields
+              missingPersistedFields,
             },
             "invite accept detected missing persisted OpenClaw gateway defaults"
           );
@@ -2188,8 +2217,8 @@ export function accessRoutes(
         details: {
           requestType,
           requestIp: created.requestIp,
-          inviteReplay: inviteAlreadyAccepted
-        }
+          inviteReplay: inviteAlreadyAccepted,
+        },
       });
 
       const response = toJoinRequestResponse(created);
@@ -2205,7 +2234,7 @@ export function accessRoutes(
           claimSecret,
           claimApiKeyPath: `/api/join-requests/${created.id}/claim-api-key`,
           onboarding: onboardingManifest.onboarding,
-          diagnostics: joinDefaults.diagnostics
+          diagnostics: joinDefaults.diagnostics,
         });
         return;
       }
@@ -2213,7 +2242,7 @@ export function accessRoutes(
         ...response,
         ...(joinDefaults.diagnostics.length > 0
           ? { diagnostics: joinDefaults.diagnostics }
-          : {})
+          : {}),
       });
     }
   );
@@ -2252,7 +2281,7 @@ export function accessRoutes(
             : req.actor.userId ?? "board",
         action: "invite.revoked",
         entityType: "invite",
-        entityId: id
+        entityId: id,
       });
     }
 
@@ -2314,7 +2343,11 @@ export function accessRoutes(
           "user",
           existing.requestingUserId,
           "member",
-          "active"
+          "active",
+          {
+            name: existing.requestNameSnapshot ?? null,
+            email: existing.requestEmailSnapshot ?? null,
+          }
         );
         const grants = grantsFromDefaults(
           invite.defaultsPayload as Record<string, unknown> | null,
@@ -2341,7 +2374,7 @@ export function accessRoutes(
           existingAgents.map((a) => ({
             id: a.id,
             name: a.name,
-            status: a.status
+            status: a.status,
           }))
         );
 
@@ -2363,7 +2396,7 @@ export function accessRoutes(
           spentMonthlyCents: 0,
           permissions: {},
           lastHeartbeatAt: null,
-          metadata: null
+          metadata: null,
         });
         createdAgentId = created.id;
         await access.ensureMembership(
@@ -2394,7 +2427,7 @@ export function accessRoutes(
             req.actor.userId ?? (isLocalImplicit(req) ? "local-board" : null),
           approvedAt: new Date(),
           createdAgentId,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where(eq(joinRequests.id, requestId))
         .returning()
@@ -2407,7 +2440,7 @@ export function accessRoutes(
         action: "join.approved",
         entityType: "join_request",
         entityId: requestId,
-        details: { requestType: existing.requestType, createdAgentId }
+        details: { requestType: existing.requestType, createdAgentId },
       });
 
       if (createdAgentId) {
@@ -2416,7 +2449,7 @@ export function accessRoutes(
           agentId: createdAgentId,
           source: "join_request",
           sourceId: requestId,
-          approvedAt: new Date()
+          approvedAt: new Date(),
         }).catch(() => {});
       }
 
@@ -2452,7 +2485,7 @@ export function accessRoutes(
           rejectedByUserId:
             req.actor.userId ?? (isLocalImplicit(req) ? "local-board" : null),
           rejectedAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         })
         .where(eq(joinRequests.id, requestId))
         .returning()
@@ -2465,7 +2498,7 @@ export function accessRoutes(
         action: "join.rejected",
         entityType: "join_request",
         entityId: requestId,
-        details: { requestType: existing.requestType }
+        details: { requestType: existing.requestType },
       });
 
       res.json(toJoinRequestResponse(rejected));
@@ -2540,15 +2573,15 @@ export function accessRoutes(
         entityId: created.id,
         details: {
           agentId: joinRequest.createdAgentId,
-          joinRequestId: requestId
-        }
+          joinRequestId: requestId,
+        },
       });
 
       res.status(201).json({
         keyId: created.id,
         token: created.token,
         agentId: joinRequest.createdAgentId,
-        createdAt: created.createdAt
+        createdAt: created.createdAt,
       });
     }
   );
