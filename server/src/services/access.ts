@@ -72,6 +72,8 @@ export function accessService(db: Db) {
   ): Promise<boolean> {
     if (!userId) return false;
     if (await isInstanceAdmin(userId)) return true;
+    const membership = await getMembership(companyId, "user", userId);
+    if (membership?.status === "active" && membership.membershipRole === "owner") return true;
     return hasPermission(companyId, "user", userId, permissionKey);
   }
 
@@ -120,6 +122,56 @@ export function accessService(db: Db) {
           })),
         );
       }
+    });
+
+    return member;
+  }
+
+  /** Remove a member from the company (deletes membership and their permission grants). Fails if removing the last owner. */
+  async function removeMember(companyId: string, memberId: string): Promise<MembershipRow | null> {
+    const member = await db
+      .select()
+      .from(companyMemberships)
+      .where(
+        and(
+          eq(companyMemberships.companyId, companyId),
+          eq(companyMemberships.id, memberId),
+        ),
+      )
+      .then((rows) => rows[0] ?? null);
+    if (!member) return null;
+
+    if (
+      member.principalType === "user" &&
+      member.membershipRole === "owner"
+    ) {
+      const owners = await db
+        .select({ id: companyMemberships.id })
+        .from(companyMemberships)
+        .where(
+          and(
+            eq(companyMemberships.companyId, companyId),
+            eq(companyMemberships.principalType, "user"),
+            eq(companyMemberships.status, "active"),
+            eq(companyMemberships.membershipRole, "owner"),
+          ),
+        );
+      if (owners.length <= 1) return null;
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(principalPermissionGrants)
+        .where(
+          and(
+            eq(principalPermissionGrants.companyId, companyId),
+            eq(principalPermissionGrants.principalType, member.principalType),
+            eq(principalPermissionGrants.principalId, member.principalId),
+          ),
+        );
+      await tx
+        .delete(companyMemberships)
+        .where(eq(companyMemberships.id, memberId));
     });
 
     return member;
@@ -190,13 +242,32 @@ export function accessService(db: Db) {
     principalId: string,
     membershipRole: string | null = "member",
     status: "pending" | "active" | "suspended" = "active",
+    profile?: { name?: string | null; email?: string | null },
   ) {
     const existing = await getMembership(companyId, principalType, principalId);
+    const setProfile =
+      principalType === "user" && profile
+        ? {
+            name: profile.name ?? null,
+            email: profile.email ?? null,
+          }
+        : undefined;
+
     if (existing) {
-      if (existing.status !== status || existing.membershipRole !== membershipRole) {
+      const roleOrStatusChanged =
+        existing.status !== status || existing.membershipRole !== membershipRole;
+      const profileUpdate =
+        setProfile &&
+        (existing.name !== setProfile.name || existing.email !== setProfile.email);
+      if (roleOrStatusChanged || profileUpdate) {
         const updated = await db
           .update(companyMemberships)
-          .set({ status, membershipRole, updatedAt: new Date() })
+          .set({
+            status,
+            membershipRole,
+            ...(setProfile ?? {}),
+            updatedAt: new Date(),
+          })
           .where(eq(companyMemberships.id, existing.id))
           .returning()
           .then((rows) => rows[0] ?? null);
@@ -213,6 +284,7 @@ export function accessService(db: Db) {
         principalId,
         status,
         membershipRole,
+        ...(setProfile ?? {}),
       })
       .returning()
       .then((rows) => rows[0]);
@@ -259,6 +331,7 @@ export function accessService(db: Db) {
     ensureMembership,
     listMembers,
     setMemberPermissions,
+    removeMember,
     promoteInstanceAdmin,
     demoteInstanceAdmin,
     listUserCompanyAccess,

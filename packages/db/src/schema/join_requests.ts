@@ -14,6 +14,7 @@ export const joinRequests = pgTable(
     requestIp: text("request_ip").notNull(),
     requestingUserId: text("requesting_user_id"),
     requestEmailSnapshot: text("request_email_snapshot"),
+    requestNameSnapshot: text("request_name_snapshot"),
     agentName: text("agent_name"),
     adapterType: text("adapter_type"),
     capabilities: text("capabilities"),

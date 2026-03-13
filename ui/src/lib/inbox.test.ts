@@ -54,6 +54,7 @@ function makeJoinRequest(id: string): JoinRequest {
     requestType: "human",
     status: "pending_approval",
     requestEmailSnapshot: null,
+    requestNameSnapshot: null,
     requestIp: "127.0.0.1",
     requestingUserId: null,
     agentName: null,

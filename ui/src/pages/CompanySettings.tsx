@@ -4,16 +4,17 @@ import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
+import { authApi } from "../api/auth";
 import { secretsApi } from "../api/secrets";
 import { githubIntegrationsApi } from "../api/githubIntegrations";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
-import { Settings, Check } from "lucide-react";
+import { Settings, Check, User, Trash2 } from "lucide-react";
 import { CompanyPatternIcon } from "../components/CompanyPatternIcon";
 import {
   Field,
   ToggleField,
-  HintIcon
+  HintIcon,
 } from "../components/agent-config-primitives";
 
 type AgentSnippetInput = {
@@ -27,7 +28,7 @@ export function CompanySettings() {
     companies,
     selectedCompany,
     selectedCompanyId,
-    setSelectedCompanyId
+    setSelectedCompanyId,
   } = useCompany();
   const { setBreadcrumbs } = useBreadcrumbs();
   const queryClient = useQueryClient();
@@ -52,13 +53,17 @@ export function CompanySettings() {
   }, [selectedCompany]);
 
   const secretsQuery = useQuery({
-    queryKey: selectedCompanyId ? queryKeys.secrets.list(selectedCompanyId) : ["secrets", "none"],
+    queryKey: selectedCompanyId
+      ? queryKeys.secrets.list(selectedCompanyId)
+      : ["secrets", "none"],
     queryFn: () => secretsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
 
   const githubIntegrationsQuery = useQuery({
-    queryKey: selectedCompanyId ? queryKeys.githubIntegrations.list(selectedCompanyId) : ["github-integrations", "none"],
+    queryKey: selectedCompanyId
+      ? queryKeys.githubIntegrations.list(selectedCompanyId)
+      : ["github-integrations", "none"],
     queryFn: () => githubIntegrationsApi.list(selectedCompanyId!),
     enabled: !!selectedCompanyId,
   });
@@ -76,6 +81,10 @@ export function CompanySettings() {
   const [snippetCopied, setSnippetCopied] = useState(false);
   const [snippetCopyDelightId, setSnippetCopyDelightId] = useState(0);
 
+  const [teamInviteEmail, setTeamInviteEmail] = useState("");
+  const [teamInviteLink, setTeamInviteLink] = useState<string | null>(null);
+  const [teamInviteError, setTeamInviteError] = useState<string | null>(null);
+
   const generalDirty =
     !!selectedCompany &&
     (companyName !== selectedCompany.name ||
@@ -90,22 +99,21 @@ export function CompanySettings() {
     }) => companiesApi.update(selectedCompanyId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
-    }
+    },
   });
 
   const settingsMutation = useMutation({
     mutationFn: (requireApproval: boolean) =>
       companiesApi.update(selectedCompanyId!, {
-        requireBoardApprovalForNewAgents: requireApproval
+        requireBoardApprovalForNewAgents: requireApproval,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.companies.all });
-    }
+    },
   });
 
   const inviteMutation = useMutation({
-    mutationFn: () =>
-      accessApi.createOpenClawInvitePrompt(selectedCompanyId!),
+    mutationFn: () => accessApi.createOpenClawInvitePrompt(selectedCompanyId!),
     onSuccess: async (invite) => {
       setInviteError(null);
       const base = window.location.origin.replace(/\/+$/, "");
@@ -127,13 +135,13 @@ export function CompanySettings() {
             manifest.onboarding.connectivity?.connectionCandidates ?? null,
           testResolutionUrl:
             manifest.onboarding.connectivity?.testResolutionEndpoint?.url ??
-            null
+            null,
         });
       } catch {
         snippet = buildAgentSnippet({
           onboardingTextUrl: absoluteUrl,
           connectionCandidates: null,
-          testResolutionUrl: null
+          testResolutionUrl: null,
         });
       }
       setInviteSnippet(snippet);
@@ -146,14 +154,14 @@ export function CompanySettings() {
         /* clipboard may not be available */
       }
       queryClient.invalidateQueries({
-        queryKey: queryKeys.sidebarBadges(selectedCompanyId!)
+        queryKey: queryKeys.sidebarBadges(selectedCompanyId!),
       });
     },
     onError: (err) => {
       setInviteError(
         err instanceof Error ? err.message : "Failed to create invite"
       );
-    }
+    },
   });
 
   useEffect(() => {
@@ -161,11 +169,58 @@ export function CompanySettings() {
     setInviteSnippet(null);
     setSnippetCopied(false);
     setSnippetCopyDelightId(0);
+    setTeamInviteLink(null);
+    setTeamInviteError(null);
   }, [selectedCompanyId]);
+
+  const teamInviteMutation = useMutation({
+    mutationFn: () =>
+      accessApi.createCompanyInvite(selectedCompanyId!, {
+        allowedJoinTypes: "human",
+        email: teamInviteEmail.trim() || null,
+      }),
+    onSuccess: (data) => {
+      setTeamInviteError(null);
+      const base = window.location.origin.replace(/\/+$/, "");
+      setTeamInviteLink(`${base}/invite/${data.token}`);
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.access.members(selectedCompanyId!),
+      });
+    },
+    onError: (err) => {
+      setTeamInviteError(
+        err instanceof Error ? err.message : "Failed to create invite"
+      );
+    },
+  });
+
+  const { data: session } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+    enabled: !!selectedCompanyId,
+  });
+  const currentUserId = session?.user?.id ?? session?.session?.userId;
+  const { data: members } = useQuery({
+    queryKey: queryKeys.access.members(selectedCompanyId!),
+    queryFn: () => accessApi.listMembers(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+  const userMembers = useMemo(
+    () => (members ?? []).filter((m) => m.principalType === "user"),
+    [members]
+  );
+  const userMembersCount = userMembers.length;
+  const removeMemberMutation = useMutation({
+    mutationFn: ({ companyId, memberId }: { companyId: string; memberId: string }) =>
+      accessApi.removeMember(companyId, memberId),
+    onSuccess: (_, { companyId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.access.members(companyId) });
+    },
+  });
   const archiveMutation = useMutation({
     mutationFn: ({
       companyId,
-      nextCompanyId
+      nextCompanyId,
     }: {
       companyId: string;
       nextCompanyId: string | null;
@@ -175,12 +230,12 @@ export function CompanySettings() {
         setSelectedCompanyId(nextCompanyId);
       }
       await queryClient.invalidateQueries({
-        queryKey: queryKeys.companies.all
+        queryKey: queryKeys.companies.all,
       });
       await queryClient.invalidateQueries({
-        queryKey: queryKeys.companies.stats
+        queryKey: queryKeys.companies.stats,
       });
-    }
+    },
   });
 
   const githubConnectMutation = useMutation({
@@ -196,11 +251,14 @@ export function CompanySettings() {
       }
       const companyId = selectedCompanyId!;
       const secrets = secretsQuery.data ?? [];
-      const existing = secrets.find((s) => s.name === suggestedSecretName) ?? null;
-      const secret =
-        existing
-          ? await secretsApi.rotate(existing.id, { value: token })
-          : await secretsApi.create(companyId, { name: suggestedSecretName, value: token });
+      const existing =
+        secrets.find((s) => s.name === suggestedSecretName) ?? null;
+      const secret = existing
+        ? await secretsApi.rotate(existing.id, { value: token })
+        : await secretsApi.create(companyId, {
+            name: suggestedSecretName,
+            value: token,
+          });
       await githubIntegrationsApi.upsert(companyId, {
         owner,
         repo,
@@ -212,26 +270,40 @@ export function CompanySettings() {
     onSuccess: async ({ owner, repo }) => {
       setGithubStatus(`Connected to ${owner}/${repo}. You can sync now.`);
       setGithubToken("");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.secrets.list(selectedCompanyId!) });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.secrets.list(selectedCompanyId!),
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!),
+      });
     },
     onError: (err) => {
-      setGithubStatus(err instanceof Error ? err.message : "Failed to connect GitHub");
+      setGithubStatus(
+        err instanceof Error ? err.message : "Failed to connect GitHub"
+      );
     },
   });
 
   // Note: importing/syncing issues happens on the Issues page.
 
   const githubToggleMutation = useMutation({
-    mutationFn: async (input: { owner: string; repo: string; enabled: boolean }) => {
+    mutationFn: async (input: {
+      owner: string;
+      repo: string;
+      enabled: boolean;
+    }) => {
       const companyId = selectedCompanyId!;
       return githubIntegrationsApi.setEnabled(companyId, input);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!),
+      });
     },
     onError: (err) => {
-      setGithubStatus(err instanceof Error ? err.message : "Failed to update integration");
+      setGithubStatus(
+        err instanceof Error ? err.message : "Failed to update integration"
+      );
     },
   });
 
@@ -242,18 +314,21 @@ export function CompanySettings() {
     },
     onSuccess: async () => {
       setGithubStatus("Integration removed.");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!) });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!),
+      });
     },
     onError: (err) => {
-      setGithubStatus(err instanceof Error ? err.message : "Failed to remove integration");
+      setGithubStatus(
+        err instanceof Error ? err.message : "Failed to remove integration"
+      );
     },
   });
-
 
   useEffect(() => {
     setBreadcrumbs([
       { label: selectedCompany?.name ?? "Company", href: "/dashboard" },
-      { label: "Settings" }
+      { label: "Settings" },
     ]);
   }, [setBreadcrumbs, selectedCompany?.name]);
 
@@ -269,7 +344,7 @@ export function CompanySettings() {
     generalMutation.mutate({
       name: companyName.trim(),
       description: description.trim() || null,
-      brandColor: brandColor || null
+      brandColor: brandColor || null,
     });
   }
 
@@ -402,6 +477,138 @@ export function CompanySettings() {
         </div>
       </div>
 
+      {/* Team */}
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Team
+        </div>
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+          <p className="text-sm text-muted-foreground">
+            Invite team members by email. They sign in (or sign up) and accept
+            the invite to join this org.
+          </p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[200px] flex-1">
+              <label className="mb-1 block text-xs text-muted-foreground">
+                Email
+              </label>
+              <input
+                className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                type="email"
+                value={teamInviteEmail}
+                placeholder="teammate@example.com"
+                onChange={(e) => setTeamInviteEmail(e.target.value)}
+              />
+            </div>
+            <Button
+              size="sm"
+              onClick={() => teamInviteMutation.mutate()}
+              disabled={teamInviteMutation.isPending || !teamInviteEmail.trim()}
+            >
+              {teamInviteMutation.isPending
+                ? "Creating…"
+                : "Create invite link"}
+            </Button>
+          </div>
+          {teamInviteError && (
+            <p className="text-sm text-destructive">{teamInviteError}</p>
+          )}
+          {teamInviteLink && (
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                className="min-w-0 flex-1 rounded-md border border-border bg-muted/30 px-2.5 py-1.5 text-sm font-mono outline-none"
+                type="text"
+                value={teamInviteLink}
+                readOnly
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  navigator.clipboard.writeText(teamInviteLink);
+                }}
+              >
+                Copy link
+              </Button>
+            </div>
+          )}
+          {userMembers.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              <p className="text-xs font-medium text-muted-foreground">
+                Team members
+              </p>
+              <ul className="space-y-1.5">
+                {userMembers.map((m) => {
+                  const label =
+                    m.name?.trim() ||
+                    m.email?.trim() ||
+                    (currentUserId && m.principalId === currentUserId
+                      ? "Me"
+                      : m.principalId.slice(0, 12) +
+                        (m.principalId.length > 12 ? "…" : ""));
+                  const role = m.membershipRole ?? "member";
+                  const isLastOwner =
+                    role === "owner" &&
+                    userMembers.filter(
+                      (u) => (u.membershipRole ?? "member") === "owner"
+                    ).length <= 1;
+                  const removeDisabled = isLastOwner || removeMemberMutation.isPending;
+                  return (
+                    <li
+                      key={m.id}
+                      className="flex items-center gap-2 text-sm py-1 px-2 rounded-md bg-muted/30"
+                    >
+                      <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="truncate flex-1 min-w-0">{label}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground capitalize">
+                        {role}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                        disabled={removeDisabled}
+                        title={
+                          isLastOwner
+                            ? "Cannot remove the last owner"
+                            : "Remove from team"
+                        }
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              `Remove ${label} from the team? They will lose access to this company.`
+                            )
+                          )
+                            return;
+                          removeMemberMutation.mutate({
+                            companyId: selectedCompanyId!,
+                            memberId: m.id,
+                          });
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {removeMemberMutation.isError && (
+                <p className="text-sm text-destructive mt-1">
+                  {removeMemberMutation.error instanceof Error
+                    ? removeMemberMutation.error.message
+                    : "Failed to remove member"}
+                </p>
+              )}
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {userMembersCount} team member{userMembersCount !== 1 ? "s" : ""} in
+            this org.
+          </p>
+        </div>
+      </div>
+
       {/* Invites */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -482,7 +689,8 @@ export function CompanySettings() {
         <div className="space-y-3 rounded-md border border-border px-4 py-4">
           <div className="text-sm font-medium">GitHub Issues</div>
           <div className="text-xs text-muted-foreground">
-            Store your repo + token here. Importing issues is done from the Issues page.
+            Store your repo + token here. Importing issues is done from the
+            Issues page.
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Owner" hint="GitHub organization or user.">
@@ -537,11 +745,17 @@ export function CompanySettings() {
               Connected repos
             </div>
             {githubIntegrationsQuery.isLoading ? (
-              <div className="text-xs text-muted-foreground">Loading integrations…</div>
+              <div className="text-xs text-muted-foreground">
+                Loading integrations…
+              </div>
             ) : githubIntegrationsQuery.isError ? (
-              <div className="text-xs text-destructive">Failed to load GitHub integrations.</div>
+              <div className="text-xs text-destructive">
+                Failed to load GitHub integrations.
+              </div>
             ) : (githubIntegrationsQuery.data?.length ?? 0) === 0 ? (
-              <div className="text-xs text-muted-foreground">No GitHub repos connected yet.</div>
+              <div className="text-xs text-muted-foreground">
+                No GitHub repos connected yet.
+              </div>
             ) : (
               <div className="space-y-2">
                 {githubIntegrationsQuery.data!.map((i) => (
@@ -555,14 +769,24 @@ export function CompanySettings() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {i.enabled ? "Enabled" : "Disabled"}
-                        {i.lastSyncedAt ? ` • Last synced ${new Date(i.lastSyncedAt).toLocaleString()}` : ""}
+                        {i.lastSyncedAt
+                          ? ` • Last synced ${new Date(
+                              i.lastSyncedAt
+                            ).toLocaleString()}`
+                          : ""}
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => githubToggleMutation.mutate({ owner: i.owner, repo: i.repo, enabled: !i.enabled })}
+                        onClick={() =>
+                          githubToggleMutation.mutate({
+                            owner: i.owner,
+                            repo: i.repo,
+                            enabled: !i.enabled,
+                          })
+                        }
                         disabled={githubToggleMutation.isPending}
                       >
                         {i.enabled ? "Disable" : "Enable"}
@@ -571,9 +795,14 @@ export function CompanySettings() {
                         size="sm"
                         variant="destructive"
                         onClick={() => {
-                          const ok = window.confirm(`Remove GitHub integration for ${i.owner}/${i.repo}? Imported issues will stay in Paperclip.`);
+                          const ok = window.confirm(
+                            `Remove GitHub integration for ${i.owner}/${i.repo}? Imported issues will stay in Paperclip.`
+                          );
                           if (!ok) return;
-                          githubRemoveMutation.mutate({ owner: i.owner, repo: i.repo });
+                          githubRemoveMutation.mutate({
+                            owner: i.owner,
+                            repo: i.repo,
+                          });
                         }}
                         disabled={githubRemoveMutation.isPending}
                       >
@@ -586,9 +815,7 @@ export function CompanySettings() {
             )}
           </div>
           {githubStatus && (
-            <div className="text-xs text-muted-foreground">
-              {githubStatus}
-            </div>
+            <div className="text-xs text-muted-foreground">{githubStatus}</div>
           )}
           {secretsQuery.isError && (
             <div className="text-xs text-destructive">
@@ -630,7 +857,7 @@ export function CompanySettings() {
                   )?.id ?? null;
                 archiveMutation.mutate({
                   companyId: selectedCompanyId,
-                  nextCompanyId
+                  nextCompanyId,
                 });
               }}
             >
@@ -650,7 +877,6 @@ export function CompanySettings() {
           </div>
         </div>
       </div>
-
     </div>
   );
 }

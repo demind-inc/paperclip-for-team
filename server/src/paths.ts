@@ -1,9 +1,21 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { resolveDefaultConfigPath } from "./home-paths.js";
 
 const PAPERCLIP_CONFIG_BASENAME = "config.json";
 const PAPERCLIP_ENV_FILENAME = ".env";
+
+/** Server package root (directory containing package.json). .env is loaded from here. */
+function getServerPackageRoot(): string {
+  const thisDir = path.dirname(fileURLToPath(import.meta.url));
+  return path.resolve(thisDir, "..");
+}
+
+/** Path to server/.env — always used when present. */
+export function resolveServerEnvPath(): string {
+  return path.resolve(getServerPackageRoot(), PAPERCLIP_ENV_FILENAME);
+}
 
 function findConfigFileFromAncestors(startDir: string): string | null {
   const absoluteStartDir = path.resolve(startDir);

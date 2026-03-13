@@ -9,7 +9,10 @@ import type { StorageService } from "./storage/types.js";
 import { httpLogger, errorHandler } from "./middleware/index.js";
 import { actorMiddleware } from "./middleware/auth.js";
 import { boardMutationGuard } from "./middleware/board-mutation-guard.js";
-import { privateHostnameGuard, resolvePrivateHostnameAllowSet } from "./middleware/private-hostname-guard.js";
+import {
+  privateHostnameGuard,
+  resolvePrivateHostnameAllowSet,
+} from "./middleware/private-hostname-guard.js";
 import { healthRoutes } from "./routes/health.js";
 import { companyRoutes } from "./routes/companies.js";
 import { agentRoutes } from "./routes/agents.js";
@@ -44,15 +47,18 @@ export async function createApp(
     authReady: boolean;
     companyDeletionEnabled: boolean;
     betterAuthHandler?: express.RequestHandler;
-    resolveSession?: (req: ExpressRequest) => Promise<BetterAuthSessionResult | null>;
-  },
+    resolveSession?: (
+      req: ExpressRequest
+    ) => Promise<BetterAuthSessionResult | null>;
+  }
 ) {
   const app = express();
 
   app.use(express.json());
   app.use(httpLogger);
   const privateHostnameGateEnabled =
-    opts.deploymentMode === "authenticated" && opts.deploymentExposure === "private";
+    opts.deploymentMode === "authenticated" &&
+    opts.deploymentExposure === "private";
   const privateHostnameAllowSet = resolvePrivateHostnameAllowSet({
     allowedHostnames: opts.allowedHostnames,
     bindHost: opts.bindHost,
@@ -62,29 +68,30 @@ export async function createApp(
       enabled: privateHostnameGateEnabled,
       allowedHostnames: opts.allowedHostnames,
       bindHost: opts.bindHost,
-    }),
+    })
   );
   app.use(
     actorMiddleware(db, {
       deploymentMode: opts.deploymentMode,
       resolveSession: opts.resolveSession,
-    }),
+    })
   );
   app.get("/api/auth/get-session", (req, res) => {
     if (req.actor.type !== "board" || !req.actor.userId) {
       res.status(401).json({ error: "Unauthorized" });
       return;
     }
+    const user = req.sessionUser ?? {
+      id: req.actor.userId,
+      email: null as string | null,
+      name: req.actor.source === "local_implicit" ? "Local Board" : null as string | null,
+    };
     res.json({
       session: {
         id: `paperclip:${req.actor.source}:${req.actor.userId}`,
         userId: req.actor.userId,
       },
-      user: {
-        id: req.actor.userId,
-        email: null,
-        name: req.actor.source === "local_implicit" ? "Local Board" : null,
-      },
+      user: { id: user.id, email: user.email, name: user.name },
     });
   });
   if (opts.betterAuthHandler) {
@@ -102,7 +109,7 @@ export async function createApp(
       deploymentExposure: opts.deploymentExposure,
       authReady: opts.authReady,
       companyDeletionEnabled: opts.companyDeletionEnabled,
-    }),
+    })
   );
   api.use("/companies", companyRoutes(db));
   api.use(agentRoutes(db));
@@ -123,7 +130,7 @@ export async function createApp(
       deploymentExposure: opts.deploymentExposure,
       bindHost: opts.bindHost,
       allowedHostnames: opts.allowedHostnames,
-    }),
+    })
   );
   app.use("/api", api);
   app.use("/api", (_req, res) => {
@@ -137,9 +144,13 @@ export async function createApp(
       path.resolve(__dirname, "../ui-dist"),
       path.resolve(__dirname, "../../ui/dist"),
     ];
-    const uiDist = candidates.find((p) => fs.existsSync(path.join(p, "index.html")));
+    const uiDist = candidates.find((p) =>
+      fs.existsSync(path.join(p, "index.html"))
+    );
     if (uiDist) {
-      const indexHtml = applyUiBranding(fs.readFileSync(path.join(uiDist, "index.html"), "utf-8"));
+      const indexHtml = applyUiBranding(
+        fs.readFileSync(path.join(uiDist, "index.html"), "utf-8")
+      );
       app.use(express.static(uiDist));
       app.get(/.*/, (_req, res) => {
         res.status(200).set("Content-Type", "text/html").end(indexHtml);
@@ -163,7 +174,9 @@ export async function createApp(
           port: hmrPort,
           clientPort: hmrPort,
         },
-        allowedHosts: privateHostnameGateEnabled ? Array.from(privateHostnameAllowSet) : undefined,
+        allowedHosts: privateHostnameGateEnabled
+          ? Array.from(privateHostnameAllowSet)
+          : undefined,
       },
     });
 
@@ -172,7 +185,9 @@ export async function createApp(
       try {
         const templatePath = path.resolve(uiRoot, "index.html");
         const template = fs.readFileSync(templatePath, "utf-8");
-        const html = applyUiBranding(await vite.transformIndexHtml(req.originalUrl, template));
+        const html = applyUiBranding(
+          await vite.transformIndexHtml(req.originalUrl, template)
+        );
         res.status(200).set({ "Content-Type": "text/html" }).end(html);
       } catch (err) {
         next(err);

@@ -1,7 +1,7 @@
 import { readConfigFile } from "./config-file.js";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { config as loadDotenv } from "dotenv";
-import { resolvePaperclipEnvPath } from "./paths.js";
+import { resolveServerEnvPath } from "./paths.js";
 import {
   AUTH_BASE_URL_MODES,
   DEPLOYMENT_EXPOSURES,
@@ -22,9 +22,31 @@ import {
   resolveHomeAwarePath,
 } from "./home-paths.js";
 
-const PAPERCLIP_ENV_FILE_PATH = resolvePaperclipEnvPath();
-if (existsSync(PAPERCLIP_ENV_FILE_PATH)) {
-  loadDotenv({ path: PAPERCLIP_ENV_FILE_PATH, override: false, quiet: true });
+const SERVER_ENV_FILE_PATH = resolveServerEnvPath();
+if (existsSync(SERVER_ENV_FILE_PATH)) {
+  loadDotenv({ path: SERVER_ENV_FILE_PATH, override: true, quiet: true });
+}
+
+/** Read DATABASE_URL from server/.env so it is used even if process.env was not updated by dotenv. */
+function readDatabaseUrlFromServerEnv(): string | undefined {
+  if (!existsSync(SERVER_ENV_FILE_PATH)) return undefined;
+  try {
+    const raw = readFileSync(SERVER_ENV_FILE_PATH, "utf8");
+    for (const line of raw.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const match = trimmed.match(/^\s*(?:export\s+)?DATABASE_URL\s*=\s*(.*)$/);
+      if (!match) continue;
+      let val = (match[1] ?? "").trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      return val || undefined;
+    }
+  } catch {
+    // ignore
+  }
+  return undefined;
 }
 
 type DatabaseMode = "embedded-postgres" | "postgres";
@@ -211,7 +233,7 @@ export function loadConfig(): Config {
     authPublicBaseUrl,
     authDisableSignUp,
     databaseMode: fileDatabaseMode,
-    databaseUrl: process.env.DATABASE_URL ?? fileDbUrl,
+    databaseUrl: process.env.DATABASE_URL?.trim() || readDatabaseUrlFromServerEnv() || fileDbUrl,
     embeddedPostgresDataDir: resolveHomeAwarePath(
       fileConfig?.database.embeddedPostgresDataDir ?? resolveDefaultEmbeddedPostgresDir(),
     ),

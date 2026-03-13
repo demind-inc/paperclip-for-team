@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Moon, Sun } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { BookOpen, LogOut, Moon, Sun } from "lucide-react";
 import { Outlet, useLocation, useNavigate, useParams } from "@/lib/router";
+import { authApi } from "@/api/auth";
 import { CompanyRail } from "./CompanyRail";
 import { Sidebar } from "./Sidebar";
 import { SidebarNavItem } from "./SidebarNavItem";
@@ -53,10 +54,25 @@ export function Layout() {
   }, [companies, companyPrefix]);
   const hasUnknownCompanyPrefix =
     Boolean(companyPrefix) && !companiesLoading && companies.length > 0 && !matchedCompany;
+  const queryClient = useQueryClient();
   const { data: health } = useQuery({
     queryKey: queryKeys.health,
     queryFn: () => healthApi.get(),
     retry: false,
+  });
+  const isAuthenticatedMode = health?.deploymentMode === "authenticated";
+  const { data: session } = useQuery({
+    queryKey: queryKeys.auth.session,
+    queryFn: () => authApi.getSession(),
+    enabled: isAuthenticatedMode,
+    retry: false,
+  });
+  const signOutMutation = useMutation({
+    mutationFn: () => authApi.signOut(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.auth.session });
+      navigate("/auth", { replace: true });
+    },
   });
 
   useEffect(() => {
@@ -245,6 +261,25 @@ export function Layout() {
             <Sidebar />
           </div>
           <div className="border-t border-r border-border px-3 py-2 bg-background">
+            {isAuthenticatedMode && session && (
+              <div className="flex items-center gap-2 mb-2 min-w-0">
+                <span className="flex-1 truncate text-xs text-muted-foreground" title={session.user?.email ?? undefined}>
+                  {session.user?.email ?? session.user?.name ?? "Signed in"}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground shrink-0"
+                  onClick={() => signOutMutation.mutate()}
+                  disabled={signOutMutation.isPending}
+                  aria-label="Sign out"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
             <div className="flex items-center gap-1">
               <SidebarNavItem
                 to="/docs"
@@ -280,6 +315,25 @@ export function Layout() {
             </div>
           </div>
           <div className="border-t border-r border-border px-3 py-2">
+            {isAuthenticatedMode && session && (
+              <div className="flex items-center gap-2 mb-2 min-w-0">
+                <span className="flex-1 truncate text-xs text-muted-foreground" title={session.user?.email ?? undefined}>
+                  {session.user?.email ?? session.user?.name ?? "Signed in"}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground shrink-0"
+                  onClick={() => signOutMutation.mutate()}
+                  disabled={signOutMutation.isPending}
+                  aria-label="Sign out"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
             <div className="flex items-center gap-1">
               <SidebarNavItem
                 to="/docs"
