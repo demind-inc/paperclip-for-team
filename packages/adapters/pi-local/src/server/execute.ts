@@ -14,6 +14,7 @@ import {
   ensureCommandResolvable,
   ensurePathInEnv,
   renderTemplate,
+  buildIssueNoteFromContext,
   runChildProcess,
 } from "@paperclipai/adapter-utils/server-utils";
 import { isPiUnknownSessionError, parsePiJsonl } from "./parse.js";
@@ -284,7 +285,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
   });
 
   // User prompt is simple - just the rendered prompt template without instructions
-  const userPrompt = renderTemplate(promptTemplate, {
+  const renderedUserPrompt = renderTemplate(promptTemplate, {
     agentId: agent.id,
     companyId: agent.companyId,
     runId,
@@ -293,6 +294,8 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
     run: { id: runId, source: "on_demand" },
     context,
   });
+  const issueNote = buildIssueNoteFromContext(context);
+  const userPrompt = `${renderedUserPrompt}${issueNote}`;
 
   const commandNotes = (() => {
     if (!resolvedInstructionsFilePath) return [] as string[];

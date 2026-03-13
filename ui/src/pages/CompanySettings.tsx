@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompany } from "../context/CompanyContext";
 import { useBreadcrumbs } from "../context/BreadcrumbContext";
 import { companiesApi } from "../api/companies";
 import { accessApi } from "../api/access";
+import { secretsApi } from "../api/secrets";
+import { githubIntegrationsApi } from "../api/githubIntegrations";
 import { queryKeys } from "../lib/queryKeys";
 import { Button } from "@/components/ui/button";
 import { Settings, Check } from "lucide-react";
@@ -35,6 +37,12 @@ export function CompanySettings() {
   const [description, setDescription] = useState("");
   const [brandColor, setBrandColor] = useState("");
 
+  // GitHub Issues integration local state
+  const [githubOwner, setGithubOwner] = useState("");
+  const [githubRepo, setGithubRepo] = useState("");
+  const [githubToken, setGithubToken] = useState("");
+  const [githubStatus, setGithubStatus] = useState<string | null>(null);
+
   // Sync local state from selected company
   useEffect(() => {
     if (!selectedCompany) return;
@@ -42,6 +50,26 @@ export function CompanySettings() {
     setDescription(selectedCompany.description ?? "");
     setBrandColor(selectedCompany.brandColor ?? "");
   }, [selectedCompany]);
+
+  const secretsQuery = useQuery({
+    queryKey: selectedCompanyId ? queryKeys.secrets.list(selectedCompanyId) : ["secrets", "none"],
+    queryFn: () => secretsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const githubIntegrationsQuery = useQuery({
+    queryKey: selectedCompanyId ? queryKeys.githubIntegrations.list(selectedCompanyId) : ["github-integrations", "none"],
+    queryFn: () => githubIntegrationsApi.list(selectedCompanyId!),
+    enabled: !!selectedCompanyId,
+  });
+
+  const suggestedSecretName = useMemo(() => {
+    const owner = githubOwner.trim();
+    const repo = githubRepo.trim().replace(/\.git$/i, "");
+    if (!owner || !repo) return "github:token";
+    const safe = `${owner}/${repo}`.replace(/[^A-Za-z0-9/_-]/g, "");
+    return `github:${safe}:token`;
+  }, [githubOwner, githubRepo]);
 
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSnippet, setInviteSnippet] = useState<string | null>(null);
@@ -154,6 +182,73 @@ export function CompanySettings() {
       });
     }
   });
+
+  const githubConnectMutation = useMutation({
+    mutationFn: async () => {
+      const owner = githubOwner.trim();
+      const repo = githubRepo.trim().replace(/\.git$/i, "");
+      if (!owner || !repo) {
+        throw new Error("GitHub owner and repo are required");
+      }
+      const token = githubToken.trim();
+      if (!token) {
+        throw new Error("GitHub token is required");
+      }
+      const companyId = selectedCompanyId!;
+      const secrets = secretsQuery.data ?? [];
+      const existing = secrets.find((s) => s.name === suggestedSecretName) ?? null;
+      const secret =
+        existing
+          ? await secretsApi.rotate(existing.id, { value: token })
+          : await secretsApi.create(companyId, { name: suggestedSecretName, value: token });
+      await githubIntegrationsApi.upsert(companyId, {
+        owner,
+        repo,
+        tokenSecretId: secret.id,
+        enabled: true,
+      });
+      return { owner, repo };
+    },
+    onSuccess: async ({ owner, repo }) => {
+      setGithubStatus(`Connected to ${owner}/${repo}. You can sync now.`);
+      setGithubToken("");
+      await queryClient.invalidateQueries({ queryKey: queryKeys.secrets.list(selectedCompanyId!) });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!) });
+    },
+    onError: (err) => {
+      setGithubStatus(err instanceof Error ? err.message : "Failed to connect GitHub");
+    },
+  });
+
+  // Note: importing/syncing issues happens on the Issues page.
+
+  const githubToggleMutation = useMutation({
+    mutationFn: async (input: { owner: string; repo: string; enabled: boolean }) => {
+      const companyId = selectedCompanyId!;
+      return githubIntegrationsApi.setEnabled(companyId, input);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!) });
+    },
+    onError: (err) => {
+      setGithubStatus(err instanceof Error ? err.message : "Failed to update integration");
+    },
+  });
+
+  const githubRemoveMutation = useMutation({
+    mutationFn: async (input: { owner: string; repo: string }) => {
+      const companyId = selectedCompanyId!;
+      return githubIntegrationsApi.remove(companyId, input);
+    },
+    onSuccess: async () => {
+      setGithubStatus("Integration removed.");
+      await queryClient.invalidateQueries({ queryKey: queryKeys.githubIntegrations.list(selectedCompanyId!) });
+    },
+    onError: (err) => {
+      setGithubStatus(err instanceof Error ? err.message : "Failed to remove integration");
+    },
+  });
+
 
   useEffect(() => {
     setBreadcrumbs([
@@ -379,6 +474,130 @@ export function CompanySettings() {
         </div>
       </div>
 
+      {/* Integrations */}
+      <div className="space-y-4">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          Integrations
+        </div>
+        <div className="space-y-3 rounded-md border border-border px-4 py-4">
+          <div className="text-sm font-medium">GitHub Issues</div>
+          <div className="text-xs text-muted-foreground">
+            Store your repo + token here. Importing issues is done from the Issues page.
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Owner" hint="GitHub organization or user.">
+              <input
+                className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                type="text"
+                value={githubOwner}
+                placeholder="octo-org"
+                onChange={(e) => setGithubOwner(e.target.value)}
+              />
+            </Field>
+            <Field label="Repo" hint="Repository name (no URL required).">
+              <input
+                className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+                type="text"
+                value={githubRepo}
+                placeholder="my-repo"
+                onChange={(e) => setGithubRepo(e.target.value)}
+              />
+            </Field>
+          </div>
+          <Field
+            label="Token"
+            hint={`Stored as a company secret (${suggestedSecretName}). Needs repo read access.`}
+          >
+            <input
+              className="w-full rounded-md border border-border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+              type="password"
+              value={githubToken}
+              placeholder="ghp_..."
+              onChange={(e) => setGithubToken(e.target.value)}
+            />
+          </Field>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => githubConnectMutation.mutate()}
+              disabled={
+                githubConnectMutation.isPending ||
+                !selectedCompanyId ||
+                !githubOwner.trim() ||
+                !githubRepo.trim() ||
+                !githubToken.trim()
+              }
+            >
+              {githubConnectMutation.isPending ? "Connecting..." : "Connect"}
+            </Button>
+          </div>
+
+          <div className="space-y-2">
+            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Connected repos
+            </div>
+            {githubIntegrationsQuery.isLoading ? (
+              <div className="text-xs text-muted-foreground">Loading integrations…</div>
+            ) : githubIntegrationsQuery.isError ? (
+              <div className="text-xs text-destructive">Failed to load GitHub integrations.</div>
+            ) : (githubIntegrationsQuery.data?.length ?? 0) === 0 ? (
+              <div className="text-xs text-muted-foreground">No GitHub repos connected yet.</div>
+            ) : (
+              <div className="space-y-2">
+                {githubIntegrationsQuery.data!.map((i) => (
+                  <div
+                    key={i.id}
+                    className="flex flex-col gap-2 rounded-md border border-border bg-muted/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {i.owner}/{i.repo}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {i.enabled ? "Enabled" : "Disabled"}
+                        {i.lastSyncedAt ? ` • Last synced ${new Date(i.lastSyncedAt).toLocaleString()}` : ""}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => githubToggleMutation.mutate({ owner: i.owner, repo: i.repo, enabled: !i.enabled })}
+                        disabled={githubToggleMutation.isPending}
+                      >
+                        {i.enabled ? "Disable" : "Enable"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => {
+                          const ok = window.confirm(`Remove GitHub integration for ${i.owner}/${i.repo}? Imported issues will stay in Paperclip.`);
+                          if (!ok) return;
+                          githubRemoveMutation.mutate({ owner: i.owner, repo: i.repo });
+                        }}
+                        disabled={githubRemoveMutation.isPending}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {githubStatus && (
+            <div className="text-xs text-muted-foreground">
+              {githubStatus}
+            </div>
+          )}
+          {secretsQuery.isError && (
+            <div className="text-xs text-destructive">
+              Failed to load secrets for this company.
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Danger Zone */}
       <div className="space-y-4">
         <div className="text-xs font-medium text-destructive uppercase tracking-wide">
@@ -431,6 +650,7 @@ export function CompanySettings() {
           </div>
         </div>
       </div>
+
     </div>
   );
 }

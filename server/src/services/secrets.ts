@@ -159,6 +159,8 @@ export function secretService(db: Db) {
 
     getById,
     getByName,
+    resolveValue: (companyId: string, secretId: string, version: number | "latest" = "latest") =>
+      resolveSecretValue(companyId, secretId, version),
 
     create: async (
       companyId: string,

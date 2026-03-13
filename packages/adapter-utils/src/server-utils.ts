@@ -95,6 +95,19 @@ export function renderTemplate(template: string, data: Record<string, unknown>) 
   return template.replace(/{{\s*([a-zA-Z0-9_.-]+)\s*}}/g, (_, path) => resolvePathValue(data, path));
 }
 
+export function buildIssueNoteFromContext(context: Record<string, unknown>): string {
+  const issue = context.paperclipIssue;
+  if (!issue || typeof issue !== "object") return "";
+  const title = typeof (issue as Record<string, unknown>).title === "string" ? (issue as Record<string, unknown>).title as string : "";
+  const description = typeof (issue as Record<string, unknown>).description === "string" ? (issue as Record<string, unknown>).description as string : "";
+  const identifier = typeof (issue as Record<string, unknown>).identifier === "string" ? (issue as Record<string, unknown>).identifier as string : "";
+  if (!title && !description) return "";
+  const parts: string[] = ["---", `Issue${identifier ? ` ${identifier}` : ""}: ${title}`];
+  if (description) parts.push(`\n${description}`);
+  parts.push("---");
+  return `\n\n${parts.join("\n")}`;
+}
+
 export function redactEnvForLogs(env: Record<string, string>): Record<string, string> {
   const redacted: Record<string, string> = {};
   for (const [key, value] of Object.entries(env)) {

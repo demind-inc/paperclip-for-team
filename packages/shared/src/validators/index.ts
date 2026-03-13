@@ -137,3 +137,18 @@ export {
   type UpdateMemberPermissions,
   type UpdateUserCompanyAccess,
 } from "./access.js";
+
+export {
+  upsertGithubIntegrationSchema,
+  syncGithubIntegrationSchema,
+  setGithubIntegrationEnabledSchema,
+  deleteGithubIntegrationSchema,
+  searchGithubIssuesSchema,
+  importGithubIssuesSchema,
+  type UpsertGithubIntegration,
+  type SyncGithubIntegration,
+  type SetGithubIntegrationEnabled,
+  type DeleteGithubIntegration,
+  type SearchGithubIssues,
+  type ImportGithubIssues,
+} from "./integrations.js";
