@@ -32,8 +32,8 @@ type GithubSearchResponse = {
 };
 
 function normalizeOwnerRepo(input: { owner: string; repo: string }) {
-  const owner = input.owner.trim().replaceAll(/^@+/, "");
-  const repo = input.repo.trim().replaceAll(/\.git$/i, "");
+  const owner = input.owner.trim().replaceAll(/^@+/g, "");
+  const repo = input.repo.trim().replaceAll(/\.git$/gi, "");
   if (!owner) throw unprocessable("owner is required");
   if (!repo) throw unprocessable("repo is required");
   return { owner, repo };
